@@ -12,8 +12,6 @@
 import { parse } from "csv-parse";
 import fs from "node:fs";
 import path from "node:path";
-import { pipeline } from "node:stream/promises";
-import { Readable } from "node:stream";
 import { eq, and } from "drizzle-orm";
 import { openDb } from "../../src/db";
 import { artworks } from "../../src/db/schema";
@@ -28,6 +26,7 @@ import {
   type MetObject,
 } from "./met-map";
 import { blockImages, upsertArtwork, upsertImage } from "./store";
+import { downloadOnce } from "./common";
 
 const CSV_URL = "https://media.githubusercontent.com/media/metmuseum/openaccess/master/MetObjects.csv";
 const USER_AGENT = "virtual-comprehensive-museum/0.1 (open-access research project)";
@@ -78,18 +77,8 @@ async function fetchObject(id: string, attempt = 1): Promise<MetObject | null> {
   return (await res.json()) as MetObject;
 }
 
-async function ensureCsv() {
-  if (fs.existsSync(csvPath)) return;
-  console.log(`Downloading ${CSV_URL} (about 300 MB, one time)...`);
-  const res = await fetch(CSV_URL);
-  if (!res.ok || !res.body) throw new Error(`CSV download failed: HTTP ${res.status}`);
-  fs.mkdirSync(path.dirname(csvPath), { recursive: true });
-  await pipeline(Readable.fromWeb(res.body as never), fs.createWriteStream(`${csvPath}.part`));
-  fs.renameSync(`${csvPath}.part`, csvPath);
-}
-
 async function readPaintingCandidates(db: ReturnType<typeof openDb>): Promise<string[]> {
-  await ensureCsv();
+  await downloadOnce(CSV_URL, csvPath, "the Met dataset (about 300 MB)");
   const candidates: string[] = [];
   const parser = fs.createReadStream(csvPath).pipe(parse({ columns: true, bom: true, relax_quotes: true }));
   for await (const row of parser as AsyncIterable<MetCsvRow>) {
