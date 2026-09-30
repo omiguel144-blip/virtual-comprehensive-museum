@@ -18,6 +18,14 @@ The Met importer works in two stages:
 
 Each run writes a report to `reports/` with counts and rejection reasons. `--catalog-only` skips stage 2.
 
+### Reading the import report
+
+- `imagesApproved`: works now shown with an image.
+- `rejected`: why other candidates stayed catalog-only (for example, no image on the Met record).
+- `errorCount`: requests that failed, usually the Met API refusing or rate-limiting a few calls. Those works stay catalog-only; rerun the import to retry them. The first few errors are printed after the summary.
+
+Warnings during `npm install` (deprecated packages, audit notices, the `allow-scripts` notice) are expected and don't affect the app.
+
 ## Takedowns
 
 ```bash

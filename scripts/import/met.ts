@@ -116,6 +116,9 @@ async function main() {
 
   if (!catalogOnly) {
     const delay = 1000 / rate;
+    if (candidates.length) {
+      console.log(`Checking images at ${rate} requests/second (about ${Math.ceil(candidates.length / rate / 60)} min)...`);
+    }
     for (const [i, id] of candidates.entries()) {
       try {
         const obj = await fetchObject(id);
@@ -144,7 +147,7 @@ async function main() {
           .get();
         if (existing) blockImages(db, existing.id);
       }
-      if ((i + 1) % 100 === 0) console.log(`  ${i + 1}/${candidates.length}`);
+      if ((i + 1) % 25 === 0) console.log(`  ${i + 1}/${candidates.length}`);
       await sleep(delay);
     }
   }
@@ -155,6 +158,11 @@ async function main() {
   fs.writeFileSync(out, JSON.stringify(report, null, 2));
   const { errors, ...summary } = report;
   console.log(JSON.stringify({ ...summary, errorCount: errors.length }, null, 2));
+  if (errors.length) {
+    console.log(`\nErrors (${errors.length}); these works stay catalog-only until a rerun succeeds:`);
+    for (const e of errors.slice(0, 10)) console.log(`  ${e}`);
+    if (errors.length > 10) console.log(`  ...and ${errors.length - 10} more in the report`);
+  }
   console.log(`Report written to ${out}`);
 }
 
