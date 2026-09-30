@@ -1,0 +1,99 @@
+import type { NewArtwork, NewImage } from "../../src/db/schema";
+import { parseDimensions, parseYears } from "../../src/lib/dimensions";
+
+export const AIC_INSTITUTION = "Art Institute of Chicago";
+export const AIC_IIIF = "https://www.artic.edu/iiif/2";
+const CC0_URL = "https://creativecommons.org/publicdomain/zero/1.0/";
+
+/** Subset of an artwork record from the AIC data dump (json/artworks/*.json). */
+export type AicArtwork = {
+  id: number;
+  title: string | null;
+  artist_title: string | null;
+  artist_display: string | null;
+  date_display: string | null;
+  date_start: number | null;
+  date_end: number | null;
+  medium_display: string | null;
+  dimensions: string | null;
+  artwork_type_title: string | null;
+  classification_title: string | null;
+  place_of_origin: string | null;
+  credit_line: string | null;
+  is_public_domain: boolean;
+  copyright_notice: string | null;
+  image_id: string | null;
+  thumbnail: { width?: number; height?: number } | null;
+  timestamp?: string | null;
+  updated_at?: string | null;
+};
+
+export const isAicPainting = (a: Pick<AicArtwork, "artwork_type_title">) => a.artwork_type_title === "Painting";
+
+const orNull = (v: string | null | undefined) => (v && v.trim() ? v.trim() : null);
+
+/** AIC's recommended IIIF sizes: 843px wide for common use, larger for close-ups. */
+export function aicImageUrl(imageId: string, width: 400 | 843 | 1686) {
+  return `${AIC_IIIF}/${imageId}/full/${width},/0/default.jpg`;
+}
+
+export function artworkFromAic(a: AicArtwork): NewArtwork {
+  const dims = parseDimensions(a.dimensions);
+  return {
+    title: orNull(a.title) ?? "Untitled",
+    artistName: orNull(a.artist_title) ?? orNull(a.artist_display?.split("\n")[0]),
+    dateDisplay: orNull(a.date_display),
+    ...parseYears(a.date_start, a.date_end),
+    medium: orNull(a.medium_display),
+    classification: orNull(a.artwork_type_title),
+    culture: orNull(a.place_of_origin),
+    institution: AIC_INSTITUTION,
+    sourceRecordId: String(a.id),
+    sourceRecordUrl: `https://www.artic.edu/artworks/${a.id}`,
+    creditLine: orNull(a.credit_line),
+    heightCm: dims?.heightCm ?? null,
+    widthCm: dims?.widthCm ?? null,
+    dimensionSource: dims?.source ?? null,
+    dimensionConfidence: dims?.confidence ?? "unknown",
+    rawSourceRecord: JSON.stringify(a),
+  };
+}
+
+export type ImageDecision =
+  | { approved: true; image: Omit<NewImage, "artworkId"> }
+  | { approved: false; reason: string; image: Omit<NewImage, "artworkId"> | null };
+
+/**
+ * AIC rule: the artwork record must say is_public_domain, have an image_id,
+ * and carry no copyright notice. AIC releases those images under CC0. Its
+ * IIIF server also returns images of copyrighted works, so an image_id alone
+ * is never enough.
+ */
+export function decideAicImage(a: AicArtwork, fallbackCheckedAt: string): ImageDecision {
+  const imageId = orNull(a.image_id);
+  if (!imageId) return { approved: false, reason: "no image_id", image: null };
+  if (!a.is_public_domain) return { approved: false, reason: "not public domain", image: null };
+
+  const image = {
+    imageUrl: aicImageUrl(imageId, 1686),
+    thumbnailUrl: aicImageUrl(imageId, 843),
+    pixelWidth: a.thumbnail?.width ?? null,
+    pixelHeight: a.thumbnail?.height ?? null,
+    rightsBasis: "CC0" as const,
+    licenseUrl: CC0_URL,
+    rightsStatement: "Public domain; image released by the Art Institute of Chicago under CC0.",
+    attributionText: "The Art Institute of Chicago",
+    rightsEvidenceUrl: `https://api.artic.edu/api/v1/artworks/${a.id}?fields=id,is_public_domain,image_id,copyright_notice`,
+    // The dump's own timestamp is when the rights flag was last known true.
+    rightsCheckedAt: orNull(a.timestamp) ?? orNull(a.updated_at) ?? fallbackCheckedAt,
+  };
+
+  if (orNull(a.copyright_notice)) {
+    return {
+      approved: false,
+      reason: "public domain flag conflicts with copyright notice",
+      image: { ...image, rightsBasis: "UNKNOWN", licenseUrl: null, rightsStatement: null, displayStatus: "PENDING_REVIEW" },
+    };
+  }
+  return { approved: true, image: { ...image, displayStatus: "APPROVED" } };
+}

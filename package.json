@@ -13,7 +13,10 @@
     "db:generate": "drizzle-kit generate",
     "import:met": "tsx scripts/import/met.ts",
     "seed": "tsx scripts/import/met.ts --ids 436535,437133,437984,436105,459123",
-    "takedown": "tsx scripts/takedown.ts"
+    "takedown": "tsx scripts/takedown.ts",
+    "import:aic": "tsx scripts/import/aic.ts",
+    "import:cma": "tsx scripts/import/cma.ts",
+    "import:all": "npm run import:met && npm run import:aic && npm run import:cma"
   },
   "dependencies": {
     "better-sqlite3": "^13.0.3",

@@ -56,10 +56,13 @@ export function parseDimensions(raw: string | null | undefined): ParsedDimension
         heightCm: round(parsed.h),
         widthCm: round(parsed.w),
         source: part,
-        // A single unlabeled measurement is probably the painting, but not certain.
-        confidence: parts.length === 1 || /^(image|unframed|painting|panel|canvas|painted surface)\b/i.test(part)
-          ? "measured"
-          : "estimated",
+        // Measured when the segment is labeled as the painting, or is the only
+        // unlabeled one and everything else is a frame or mount.
+        confidence:
+          /^(image|unframed|painting|panel|canvas|painted surface)\b/i.test(part) ||
+          (unframed.length === 1 && !/^[a-z][a-z ]*:/i.test(part))
+            ? "measured"
+            : "estimated",
       };
     }
   }

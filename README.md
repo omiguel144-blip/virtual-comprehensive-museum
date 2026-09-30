@@ -8,6 +8,8 @@ A searchable museum of painting history that shows high-quality images only when
 npm install
 npm run seed                          # 5 Met paintings via the Met API (needs internet)
 npm run import:met -- --limit 500     # first 500 Met paintings (downloads a ~300 MB CSV once)
+npm run import:aic                    # all Art Institute of Chicago paintings (~120 MB dump, ~10 s)
+npm run import:cma                    # all Cleveland Museum of Art paintings (~130 MB CSV, ~10 s)
 npm run dev                           # http://localhost:3000
 ```
 
@@ -17,6 +19,17 @@ The Met importer works in two stages:
 2. For public-domain candidates, calls the Met object API (about 4 requests per second) and approves an image only when the record itself says `isPublicDomain` and has a `primaryImage` on `images.metmuseum.org`.
 
 Each run writes a report to `reports/` with counts and rejection reasons. `--catalog-only` skips stage 2.
+
+### Art Institute of Chicago and Cleveland
+
+Both importers read the bulk datasets each museum publishes, so they make no per-record API calls and finish in seconds. Downloads are kept in `data/`; pass `--refresh` to fetch new copies.
+
+| Source | Image shown only when | Otherwise |
+| --- | --- | --- |
+| Chicago | `is_public_domain` is true, an `image_id` exists, and there is no copyright notice | Catalog-only. AIC's IIIF server also serves copyrighted images, so an image ID alone never counts. |
+| Cleveland | `share_license_status` is `CC0` and the image is on CMA's open-access CDN | Catalog-only. A CC0 flag next to a copyright notice is held as `PENDING_REVIEW`. |
+
+Chicago images are hotlinked from its IIIF server (843 px for cards, 1686 px for detail pages), which AIC permits. Chicago's dump is refreshed only occasionally, so each image records the dump's own timestamp as its rights check date.
 
 ### Reading the import report
 
@@ -43,7 +56,7 @@ npm run test:e2e    # withdrawn images never leak into HTML, JSON, or og:image
 ## Roadmap
 
 1. ✅ Catalog, rights gate, Met importer
-2. Art Institute of Chicago and Cleveland Museum of Art importers
+2. ✅ Art Institute of Chicago and Cleveland Museum of Art importers
 3. Cross-source deduplication
 4. 3D gallery room (React Three Fiber, 1 unit = 1 m, sized from unframed dimensions)
 5. Artist opt-in submissions (after legal review)

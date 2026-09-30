@@ -26,6 +26,15 @@ describe("parseDimensions", () => {
     expect(d).toMatchObject({ heightCm: 150.5, widthCm: 205.1, confidence: "measured" });
   });
 
+  it("treats an unlabeled size followed only by a framed size as the painting", () => {
+    const d = parseDimensions("45.8 × 39 cm (18 × 15 3/8 in.); Framed: 68.6 × 61 cm (27 × 24 in.)");
+    expect(d).toMatchObject({ heightCm: 45.8, widthCm: 39, confidence: "measured" });
+  });
+
+  it("stays estimated when several unlabeled sizes compete", () => {
+    expect(parseDimensions("45 × 39 cm; 50 × 40 cm")?.confidence).toBe("estimated");
+  });
+
   it("flags framed-only measurements as estimated", () => {
     const d = parseDimensions("Framed: 120 x 180 cm");
     expect(d).toMatchObject({ heightCm: 120, widthCm: 180, confidence: "estimated" });
