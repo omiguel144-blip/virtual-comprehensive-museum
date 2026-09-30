@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { openDb, type Db } from "@/db";
 import { artworks, images } from "@/db/schema";
-import { getArtwork, listArtworks } from "./queries";
+import { getArtwork, listArtworks, listGalleryArtworks } from "./queries";
 
 const OPEN = "https://img.example.org/open.jpg";
 const BLOCKED = "https://img.example.org/blocked.jpg";
@@ -45,5 +45,15 @@ describe("public queries", () => {
     expect((await listArtworks(db, { century: 17 })).items.map((a) => a.id)).toEqual([1]);
     expect((await listArtworks(db, { q: "blocked" })).items.map((a) => a.id)).toEqual([2]);
     expect((await listArtworks(db, { withImages: true })).total).toBe(1);
+  });
+
+  it("gallery only includes approved images with measured sizes", async () => {
+    await db.update(artworks).set({ heightCm: 50, widthCm: 40, dimensionConfidence: "measured" });
+    const gallery = await listGalleryArtworks(db);
+    expect(gallery.map((a) => a.id)).toEqual([1]);
+    expect(JSON.stringify(gallery)).not.toContain(BLOCKED);
+
+    await db.update(artworks).set({ dimensionConfidence: "estimated" });
+    expect(await listGalleryArtworks(db)).toEqual([]);
   });
 });

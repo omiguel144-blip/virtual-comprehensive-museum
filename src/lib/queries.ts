@@ -100,3 +100,34 @@ export async function listInstitutions(db: Db): Promise<string[]> {
     .orderBy(asc(artworks.institution));
   return rows.map((r) => r.institution);
 }
+
+export type GalleryFilters = { century?: number; institution?: string; limit?: number };
+
+/**
+ * Paintings for the 3D room: only works with an image that passes the rights
+ * gate and a measured (not estimated) physical size, so scale is honest.
+ */
+export async function listGalleryArtworks(db: Db, filters: GalleryFilters = {}) {
+  const limit = Math.min(Math.max(filters.limit ?? 12, 1), 24);
+  const where = and(
+    buildWhere({ century: filters.century, institution: filters.institution, withImages: true }),
+    eq(artworks.dimensionConfidence, "measured"),
+    // Skip miniatures and huge works that don't read well in one room.
+    gte(artworks.heightCm, 15),
+    lte(artworks.heightCm, 380),
+    gte(artworks.widthCm, 15),
+    lte(artworks.widthCm, 600),
+  );
+  const rows = await db
+    .select()
+    .from(artworks)
+    .where(where)
+    .orderBy(asc(artworks.yearStart), asc(artworks.id))
+    .limit(limit * 2);
+  // The SQL filter mirrors the gate; the gate itself makes the final call.
+  return (await attachImages(db, rows))
+    .filter((a): a is PublicArtwork & { image: DisplayImage; heightCm: number; widthCm: number } =>
+      Boolean(a.image && a.heightCm && a.widthCm),
+    )
+    .slice(0, limit);
+}

@@ -1,6 +1,6 @@
 # Virtual Comprehensive Museum
 
-A searchable museum of painting history that shows high-quality images only when the holding institution marks them open access (or permission is on file), and links to the source for everything else. A walkable, life-scale 3D gallery comes later.
+A searchable museum of painting history that shows high-quality images only when the holding institution marks them open access (or permission is on file), and links to the source for everything else. It also has a walkable 3D gallery where paintings hang at life scale.
 
 ## Quick start
 
@@ -39,6 +39,17 @@ Chicago images are hotlinked from its IIIF server (843 px for cards, 1686 px for
 
 Warnings during `npm install` (deprecated packages, audit notices, the `allow-scripts` notice) are expected and don't affect the app.
 
+## 3D gallery
+
+Open http://localhost:3000/gallery. Pick a century room (and optionally one museum) at the top.
+
+- Drag to look around, walk with W A S D or the arrow keys, and click a painting to walk up to it.
+- Paintings hang at their measured size (1 scene unit = 1 meter), centered at eye level, so their scale is true relative to the room and to each other.
+- Only works with an approved image **and** a measured painted-surface size are hung. Estimated sizes stay in the 2D catalog.
+- If a photo's proportions differ from the measured size (a frame or crop in the photo), it keeps its own proportions within the measured area and the info panel says so. Images are never stretched.
+- A smaller image loads first; the larger approved image loads when you walk within about 3 m.
+- Textures load through `/api/gallery-image/<id>`, which re-checks the rights gate and only fetches from the three museums' image hosts.
+
 ## Takedowns
 
 ```bash
@@ -58,7 +69,7 @@ npm run test:e2e    # withdrawn images never leak into HTML, JSON, or og:image
 1. ✅ Catalog, rights gate, Met importer
 2. ✅ Art Institute of Chicago and Cleveland Museum of Art importers
 3. Cross-source deduplication
-4. 3D gallery room (React Three Fiber, 1 unit = 1 m, sized from unframed dimensions)
+4. ✅ 3D gallery room (React Three Fiber, 1 unit = 1 m, sized from unframed dimensions)
 5. Artist opt-in submissions (after legal review)
 
 This is an engineering safeguard, not legal advice. Review a sample of records from each source before publishing at scale.

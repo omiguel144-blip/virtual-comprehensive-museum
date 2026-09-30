@@ -4,7 +4,7 @@ import { BLOCKED_THUMB, BLOCKED_URL, OPEN_THUMB, OPEN_URL } from "./fixture";
 const leaked = (body: string) => body.includes(BLOCKED_URL) || body.includes(BLOCKED_THUMB);
 
 test("withdrawn images never appear in HTML, JSON, or social previews", async ({ request }) => {
-  for (const path of ["/", "/?images=1", "/artworks/2", "/api/artworks", "/api/artworks/2"]) {
+  for (const path of ["/", "/?images=1", "/artworks/2", "/api/artworks", "/api/artworks/2", "/gallery?century=17"]) {
     const res = await request.get(path);
     expect(res.ok(), path).toBe(true);
     expect(leaked(await res.text()), path).toBe(false);
@@ -22,4 +22,17 @@ test("withdrawn artwork stays in the catalog as a record", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Withdrawn Portrait" })).toBeVisible();
   await expect(page.getByText("Image not shown")).toBeVisible();
   await expect(page.locator('meta[property="og:image"]')).toHaveCount(0);
+});
+
+test("the gallery hangs only approved works and refuses withdrawn textures", async ({ page, request }) => {
+  const html = await (await request.get("/gallery?century=17")).text();
+  expect(html).toContain("Open Landscape");
+  expect(html).not.toContain("Withdrawn Portrait");
+  expect((await request.get("/api/gallery-image/2")).status()).toBe(404);
+  expect((await request.get("/api/gallery-image/2?size=large")).status()).toBe(404);
+  // Approved, but its fixture URL is not a museum image host, so it is refused too.
+  expect((await request.get("/api/gallery-image/1")).status()).toBe(404);
+
+  await page.goto("/gallery?century=17");
+  await expect(page.locator("canvas")).toHaveCount(1);
 });

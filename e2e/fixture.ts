@@ -20,8 +20,8 @@ export function buildFixture() {
   };
   db.insert(artworks)
     .values([
-      { id: 1, title: "Open Landscape", artistName: "Test Painter", yearStart: 1650, institution: "Example Museum", sourceRecordId: "1", sourceRecordUrl: "https://museum.example.org/1" },
-      { id: 2, title: "Withdrawn Portrait", artistName: "Test Painter", yearStart: 1950, institution: "Example Museum", sourceRecordId: "2", sourceRecordUrl: "https://museum.example.org/2" },
+      { id: 1, title: "Open Landscape", artistName: "Test Painter", yearStart: 1650, heightCm: 91.5, widthCm: 151.8, dimensionConfidence: "measured" as const, institution: "Example Museum", sourceRecordId: "1", sourceRecordUrl: "https://museum.example.org/1" },
+      { id: 2, title: "Withdrawn Portrait", artistName: "Test Painter", yearStart: 1650, heightCm: 80, widthCm: 60, dimensionConfidence: "measured" as const, institution: "Example Museum", sourceRecordId: "2", sourceRecordUrl: "https://museum.example.org/2" },
     ])
     .run();
   db.insert(images)

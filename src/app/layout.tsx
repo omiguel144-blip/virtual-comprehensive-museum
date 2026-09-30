@@ -16,9 +16,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             <Link href="/" className="font-serif text-xl tracking-tight">
               Virtual Comprehensive Museum
             </Link>
-            <Link href="/about/rights" className="text-sm text-muted hover:text-foreground">
-              Image rights
-            </Link>
+            <span className="flex gap-5 text-sm">
+              <Link href="/gallery" className="text-muted hover:text-foreground">
+                Gallery
+              </Link>
+              <Link href="/about/rights" className="text-muted hover:text-foreground">
+                Image rights
+              </Link>
+            </span>
           </nav>
         </header>
         <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">{children}</main>

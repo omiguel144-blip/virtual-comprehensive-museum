@@ -18,6 +18,7 @@ A catalog of painting history. Core rule: **an artwork can enter the catalog wit
 - Next.js App Router + TypeScript + Tailwind. Drizzle ORM on SQLite (`data/museum.db`, override with `DATABASE_PATH`).
 - Schema: `src/db/schema.ts`. After changing it, run `npm run db:generate` and commit the new file in `drizzle/`.
 - **Rights gate:** `src/lib/rights.ts` is the only place that decides whether an image is displayable. `src/lib/queries.ts` is the only public read path and never returns raw `images` rows. Any new surface (pages, API, OG tags, 3D textures) must use these.
+- 3D gallery: `src/app/gallery/` (React Three Fiber). Layout math is pure and tested in `src/lib/gallery-layout.ts`. Textures must come from `/api/gallery-image/[id]`, which uses the rights gate plus the host allowlist in `src/lib/image-hosts.ts`; add a host there when adding a source.
 - Importers live in `scripts/import/`; keep source mapping pure (`*-map.ts`) and tested. Shared pieces: `common.ts` (args, downloads, reports), `apply.ts` (store a record plus its image decision), `store.ts` (upserts that respect `manualOverride`).
 
 ## Commands
