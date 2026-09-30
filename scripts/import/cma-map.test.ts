@@ -17,6 +17,7 @@ const row = {
   url: "https://clevelandart.org/art/2020.113",
   creditline: "Nancy F. and Joseph P. Keithley Collection Gift",
   image_credit: "",
+  external_resources: "{'wikidata': ['https://www.wikidata.org/wiki/Q87480807'], 'internet_archive': []}",
   creators: "Camille Pissarro (French, 1830–1903), artist",
   image_web: "https://openaccess-cdn.clevelandart.org/2020.113/2020.113_web.jpg",
   image_print: "https://openaccess-cdn.clevelandart.org/2020.113/2020.113_print.jpg",
@@ -33,6 +34,7 @@ describe("CMA mapping", () => {
       widthCm: 81.3,
       dimensionConfidence: "measured",
       sourceRecordId: "74228",
+      wikidataId: "Q87480807",
     });
   });
 

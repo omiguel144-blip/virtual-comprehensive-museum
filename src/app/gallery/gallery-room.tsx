@@ -15,13 +15,14 @@ const LABEL_DISTANCE = 2.8;
 
 type Props = { paintings: GalleryPainting[]; length: number; width: number; height: number };
 
-function textureUrl(id: number, size: "small" | "large") {
+function proxyUrl(id: number, size: "small" | "large") {
   return `/api/gallery-image/${id}?size=${size}`;
 }
 
 const loader = new THREE.TextureLoader();
+loader.setCrossOrigin("anonymous");
 
-function loadTexture(url: string): Promise<THREE.Texture> {
+function loadOne(url: string): Promise<THREE.Texture> {
   return new Promise((resolve, reject) => {
     loader.load(
       url,
@@ -36,14 +37,30 @@ function loadTexture(url: string): Promise<THREE.Texture> {
   });
 }
 
+/**
+ * Loads through our same-origin route first; if that fails, tries the
+ * museum's own URL (works when the museum sends CORS headers).
+ */
+async function loadTexture(painting: GalleryPainting, size: "small" | "large"): Promise<THREE.Texture> {
+  try {
+    return await loadOne(proxyUrl(painting.id, size));
+  } catch {
+    const direct = size === "large" ? painting.imageUrl : painting.thumbnailUrl;
+    console.warn(`Gallery image ${painting.id} (${size}) failed via /api/gallery-image; trying the museum URL directly.`);
+    return loadOne(direct);
+  }
+}
+
 function Painting({
   painting,
   onSelect,
   onMismatch,
+  onFailed,
 }: {
   painting: GalleryPainting;
   onSelect: (id: number) => void;
   onMismatch: (id: number) => void;
+  onFailed: (id: number) => void;
 }) {
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
   const [failed, setFailed] = useState(false);
@@ -52,13 +69,17 @@ function Painting({
 
   useEffect(() => {
     let cancelled = false;
-    loadTexture(textureUrl(painting.id, "small"))
+    loadTexture(painting, "small")
       .then((t) => (cancelled ? t.dispose() : setTexture(t)))
-      .catch(() => !cancelled && setFailed(true));
+      .catch(() => {
+        if (cancelled) return;
+        setFailed(true);
+        onFailed(painting.id);
+      });
     return () => {
       cancelled = true;
     };
-  }, [painting.id]);
+  }, [painting, onFailed]);
 
   useEffect(() => () => texture?.dispose(), [texture]);
 
@@ -67,7 +88,7 @@ function Painting({
     if (largeRequested.current || !texture) return;
     if (camera.position.distanceTo(world) < NEAR_DISTANCE) {
       largeRequested.current = true;
-      loadTexture(textureUrl(painting.id, "large"))
+      loadTexture(painting, "large")
         .then(setTexture)
         .catch(() => {});
     }
@@ -276,6 +297,7 @@ export function GalleryRoom({ paintings, length, width, height }: Props) {
   const [nearest, setNearest] = useState<number | null>(null);
   const [glide, setGlide] = useState<Glide>(null);
   const [mismatched, setMismatched] = useState<Set<number>>(new Set());
+  const [failed, setFailed] = useState<Set<number>>(new Set());
 
   const byId = useMemo(() => new Map(paintings.map((p) => [p.id, p])), [paintings]);
   const shown = byId.get(selected ?? nearest ?? -1) ?? null;
@@ -297,6 +319,9 @@ export function GalleryRoom({ paintings, length, width, height }: Props) {
   const onMismatch = useCallback((id: number) => {
     setMismatched((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
   }, []);
+  const onFailed = useCallback((id: number) => {
+    setFailed((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
+  }, []);
 
   return (
     <div className="relative h-[70vh] min-h-[420px] w-full overflow-hidden rounded border border-border bg-black">
@@ -316,7 +341,7 @@ export function GalleryRoom({ paintings, length, width, height }: Props) {
         <directionalLight position={[0, height, 2]} intensity={0.5} />
         <Room length={length} width={width} height={height} />
         {paintings.map((p) => (
-          <Painting key={p.id} painting={p} onSelect={select} onMismatch={onMismatch} />
+          <Painting key={p.id} painting={p} onSelect={select} onMismatch={onMismatch} onFailed={onFailed} />
         ))}
         <Visitor
           length={length}
@@ -339,6 +364,12 @@ export function GalleryRoom({ paintings, length, width, height }: Props) {
           <p className="mt-2">
             {formatSize(shown)} · {shown.institution}
           </p>
+          {failed.has(shown.id) && (
+            <p className="mt-1 text-xs text-accent">
+              This image couldn&apos;t be loaded from {shown.institution}. Run <code>npm run check:images</code> to see
+              why; the dev server log also shows the reason.
+            </p>
+          )}
           {mismatched.has(shown.id) && (
             <p className="mt-1 text-xs text-accent">
               The photo&apos;s proportions differ from the measured size (it may include a frame or be cropped), so it

@@ -1,4 +1,5 @@
 import type { NewArtwork, NewImage } from "../../src/db/schema";
+import { parseWikidataId } from "../../src/lib/dedupe";
 import { parseDimensions, parseYears } from "../../src/lib/dimensions";
 
 export const CMA_INSTITUTION = "Cleveland Museum of Art";
@@ -37,6 +38,7 @@ export function artworkFromCma(row: CmaRow): NewArtwork {
     widthCm: dims?.widthCm ?? null,
     dimensionSource: dims?.source ?? null,
     dimensionConfidence: dims?.confidence ?? "unknown",
+    wikidataId: parseWikidataId(row["external_resources"]),
     rawSourceRecord: JSON.stringify(row),
   };
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { openDb } from "../../src/db";
-import { images } from "../../src/db/schema";
+import { artworks, images } from "../../src/db/schema";
 import { upsertArtwork, upsertImage } from "./store";
 
 const artwork = { title: "A", institution: "T", sourceRecordId: "1", sourceRecordUrl: "https://t.org/1" };
@@ -19,6 +19,16 @@ describe("import store", () => {
     const first = upsertArtwork(db, artwork);
     const second = upsertArtwork(db, { ...artwork, title: "B" });
     expect(second).toBe(first);
+  });
+
+  it("keeps a known Wikidata ID and a confirmed duplicate link across re-imports", () => {
+    const db = openDb(":memory:");
+    const other = upsertArtwork(db, { ...artwork, sourceRecordId: "2" });
+    const id = upsertArtwork(db, { ...artwork, wikidataId: "Q1" });
+    db.update(artworks).set({ duplicateOf: other }).where(eq(artworks.id, id)).run();
+    upsertArtwork(db, { ...artwork, wikidataId: null });
+    const row = db.select().from(artworks).where(eq(artworks.id, id)).get();
+    expect(row).toMatchObject({ wikidataId: "Q1", duplicateOf: other });
   });
 
   it("never overwrites an image a human withdrew", () => {

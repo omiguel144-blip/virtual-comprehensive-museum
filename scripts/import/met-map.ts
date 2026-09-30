@@ -1,4 +1,5 @@
 import type { NewArtwork, NewImage } from "../../src/db/schema";
+import { parseWikidataId } from "../../src/lib/dedupe";
 import { parseDimensions, parseYears } from "../../src/lib/dimensions";
 
 export const MET_INSTITUTION = "The Metropolitan Museum of Art";
@@ -25,6 +26,7 @@ export type MetObject = {
   culture: string;
   creditLine: string;
   objectURL: string;
+  objectWikidata_URL?: string;
 };
 
 export function isPaintingRow(row: MetCsvRow): boolean {
@@ -53,6 +55,7 @@ export function artworkFromCsv(row: MetCsvRow): NewArtwork {
     widthCm: dims?.widthCm ?? null,
     dimensionSource: dims?.source ?? null,
     dimensionConfidence: dims?.confidence ?? "unknown",
+    wikidataId: parseWikidataId(row["Object Wikidata URL"]),
     rawSourceRecord: JSON.stringify(row),
   };
 }
@@ -75,6 +78,7 @@ export function artworkFromApi(obj: MetObject): NewArtwork {
     widthCm: dims?.widthCm ?? null,
     dimensionSource: dims?.source ?? null,
     dimensionConfidence: dims?.confidence ?? "unknown",
+    wikidataId: parseWikidataId(obj.objectWikidata_URL),
     rawSourceRecord: JSON.stringify(obj),
   };
 }

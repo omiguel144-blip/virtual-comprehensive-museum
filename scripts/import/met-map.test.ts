@@ -54,6 +54,7 @@ describe("CSV mapping", () => {
     Dimensions: "28 7/8 x 36 3/4 in. (73.2 x 93.4 cm)",
     Classification: "Paintings",
     "Link Resource": "http://www.metmuseum.org/art/collection/search/436535",
+    "Object Wikidata URL": "https://www.wikidata.org/wiki/Q18393437",
   };
 
   it("detects paintings and maps fields", () => {
@@ -66,6 +67,7 @@ describe("CSV mapping", () => {
       heightCm: 73.2,
       widthCm: 93.4,
       sourceRecordUrl: "https://www.metmuseum.org/art/collection/search/436535",
+      wikidataId: "Q18393437",
     });
   });
 });

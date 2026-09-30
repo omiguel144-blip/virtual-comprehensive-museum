@@ -1,4 +1,4 @@
-import { and, asc, count, eq, gte, inArray, like, lte, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, count, eq, gte, inArray, isNull, like, lte, or, sql, type SQL } from "drizzle-orm";
 import { artworks, images, type Artwork } from "@/db/schema";
 import type { Db } from "@/db";
 import { getDisplayImage, type DisplayImage } from "./rights";
@@ -45,7 +45,8 @@ async function attachImages(db: Db, rows: Artwork[]): Promise<PublicArtwork[]> {
 const hasApprovedImage = sql`exists (select 1 from ${images} where ${images.artworkId} = ${artworks.id} and ${images.displayStatus} = 'APPROVED' and ${images.rightsBasis} != 'UNKNOWN')`;
 
 function buildWhere(filters: CatalogFilters): SQL | undefined {
-  const conditions: SQL[] = [];
+  // Confirmed duplicates are reachable from their canonical record, not listed.
+  const conditions: SQL[] = [isNull(artworks.duplicateOf)];
   const q = filters.q?.trim();
   if (q) {
     const pattern = `%${q}%`;
@@ -91,6 +92,19 @@ export async function getArtwork(db: Db, id: number): Promise<PublicArtwork | nu
   const rows = await db.select().from(artworks).where(eq(artworks.id, id)).limit(1);
   const [artwork] = await attachImages(db, rows);
   return artwork ?? null;
+}
+
+export type RelatedRecord = { id: number; institution: string; sourceRecordUrl: string; title: string };
+
+/** Other records of the same object: its canonical record and everything merged into it. */
+export async function getRelatedRecords(db: Db, artwork: Pick<Artwork, "id" | "duplicateOf">): Promise<RelatedRecord[]> {
+  const root = artwork.duplicateOf ?? artwork.id;
+  const rows = await db
+    .select({ id: artworks.id, institution: artworks.institution, sourceRecordUrl: artworks.sourceRecordUrl, title: artworks.title })
+    .from(artworks)
+    .where(or(eq(artworks.id, root), eq(artworks.duplicateOf, root)))
+    .orderBy(asc(artworks.id));
+  return rows.filter((r) => r.id !== artwork.id);
 }
 
 export async function listInstitutions(db: Db): Promise<string[]> {

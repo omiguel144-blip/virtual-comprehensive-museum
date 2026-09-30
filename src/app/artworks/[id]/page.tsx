@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getDb } from "@/db";
-import { getArtwork } from "@/lib/queries";
+import Link from "next/link";
+import { getArtwork, getRelatedRecords } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +36,7 @@ export default async function ArtworkPage({ params }: PageProps<"/artworks/[id]"
   const artwork = await load(params);
   if (!artwork) notFound();
   const { image } = artwork;
+  const related = await getRelatedRecords(getDb(), artwork);
 
   const size =
     artwork.heightCm && artwork.widthCm
@@ -63,6 +65,15 @@ export default async function ArtworkPage({ params }: PageProps<"/artworks/[id]"
       </div>
 
       <div className="space-y-6">
+        {artwork.duplicateOf && (
+          <p className="rounded border border-border bg-surface p-3 text-sm">
+            This is a second record of the same work.{" "}
+            <Link href={`/artworks/${artwork.duplicateOf}`} className="text-accent underline">
+              See the main record
+            </Link>
+            .
+          </p>
+        )}
         <header className="space-y-1">
           <h1 className="font-serif text-3xl leading-tight">{artwork.title}</h1>
           <p className="text-muted">
@@ -101,6 +112,25 @@ export default async function ArtworkPage({ params }: PageProps<"/artworks/[id]"
               Original record at {artwork.institution}
             </a>
           </p>
+          {related.length > 0 && (
+            <div className="border-t border-border pt-2">
+              <p className="text-muted">Also recorded as:</p>
+              <ul className="list-disc pl-5">
+                {related.map((r) => (
+                  <li key={r.id}>
+                    <Link href={`/artworks/${r.id}`} className="underline">
+                      {r.institution}
+                    </Link>{" "}
+                    (
+                    <a href={r.sourceRecordUrl} target="_blank" rel="noreferrer" className="text-accent underline">
+                      source
+                    </a>
+                    )
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </section>
       </div>
     </article>

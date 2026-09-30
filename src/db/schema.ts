@@ -63,12 +63,18 @@ export const artworks = sqliteTable(
     })
       .notNull()
       .default("unknown"),
+    // Shared identifier across collections (e.g. "Q87480807"), used for deduplication.
+    wikidataId: text("wikidata_id"),
+    // Set when this record is a confirmed duplicate of another; hidden from lists.
+    duplicateOf: integer("duplicate_of"),
     // Original record as JSON, kept for audits.
     rawSourceRecord: text("raw_source_record"),
     ...timestamps,
   },
   (t) => [
     uniqueIndex("artworks_source_unique").on(t.institution, t.sourceRecordId),
+    index("artworks_wikidata_idx").on(t.wikidataId),
+    index("artworks_duplicate_idx").on(t.duplicateOf),
     index("artworks_year_idx").on(t.yearStart),
     index("artworks_artist_idx").on(t.artistName),
   ],
@@ -105,7 +111,32 @@ export const images = sqliteTable(
   (t) => [index("images_artwork_idx").on(t.artworkId)],
 );
 
+export const DUPLICATE_STATUSES = ["PENDING", "CONFIRMED", "REJECTED"] as const;
+export type DuplicateStatus = (typeof DUPLICATE_STATUSES)[number];
+
+/** Possible duplicate pairs. artworkA < artworkB; decisions are never re-proposed. */
+export const duplicateCandidates = sqliteTable(
+  "duplicate_candidates",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    artworkA: integer("artwork_a")
+      .notNull()
+      .references(() => artworks.id, { onDelete: "cascade" }),
+    artworkB: integer("artwork_b")
+      .notNull()
+      .references(() => artworks.id, { onDelete: "cascade" }),
+    reason: text("reason").notNull(),
+    score: real("score").notNull(),
+    status: text("status", { enum: DUPLICATE_STATUSES }).notNull().default("PENDING"),
+    decidedBy: text("decided_by"), // "auto:wikidata" or "human"
+    decidedAt: text("decided_at"),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex("duplicate_pair_unique").on(t.artworkA, t.artworkB)],
+);
+
 export type Artwork = typeof artworks.$inferSelect;
+export type DuplicateCandidate = typeof duplicateCandidates.$inferSelect;
 export type NewArtwork = typeof artworks.$inferInsert;
 export type Image = typeof images.$inferSelect;
 export type NewImage = typeof images.$inferInsert;

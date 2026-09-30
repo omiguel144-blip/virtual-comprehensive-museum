@@ -50,6 +50,30 @@ Open http://localhost:3000/gallery. Pick a century room (and optionally one muse
 - A smaller image loads first; the larger approved image loads when you walk within about 3 m.
 - Textures load through `/api/gallery-image/<id>`, which re-checks the rights gate and only fetches from the three museums' image hosts.
 
+### If gallery images don't load
+
+Paintings that fail show as dark brown panels, and the info panel says so. Run:
+
+```bash
+npm run check:images
+```
+
+It fetches a few approved images per museum the same way the gallery does and prints the exact failure (HTTP status, timeout, and so on). The `npm run dev` terminal also logs each failure. If the server route fails, the browser tries the museum's own URL directly.
+
+## Duplicates across museums
+
+```bash
+npm run dedupe                         # scan all records
+npm run dedupe -- --list               # show pairs waiting for review
+npm run dedupe -- --confirm <id>       # same object: merge
+npm run dedupe -- --reject <id>        # different works: never proposed again
+npm run dedupe -- --undo <id>          # unmerge (also marks them as different works)
+```
+
+- A shared Wikidata ID (published by the Met and Cleveland) merges automatically.
+- Anything else (same artist, a title at least 80% similar, dates within 2 years, both sizes within 3%) only goes to review. Different museums rarely own the same object, while artists often repeat titles and canvas sizes, so fuzzy matches are never merged automatically.
+- The kept record is the one with an approved image, then a measured size. Merged records are hidden from the catalog and gallery but linked from the kept record's page, with each museum's source.
+
 ## Takedowns
 
 ```bash
@@ -68,7 +92,7 @@ npm run test:e2e    # withdrawn images never leak into HTML, JSON, or og:image
 
 1. ✅ Catalog, rights gate, Met importer
 2. ✅ Art Institute of Chicago and Cleveland Museum of Art importers
-3. Cross-source deduplication
+3. ✅ Cross-source deduplication
 4. ✅ 3D gallery room (React Three Fiber, 1 unit = 1 m, sized from unframed dimensions)
 5. Artist opt-in submissions (after legal review)
 

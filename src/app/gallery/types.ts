@@ -14,4 +14,7 @@ export type GalleryPainting = Placement & {
   rightsStatement: string | null;
   attributionText: string | null;
   sourceRecordUrl: string;
+  /** Rights-approved image URLs, used directly if the same-origin route fails. */
+  thumbnailUrl: string;
+  imageUrl: string;
 };

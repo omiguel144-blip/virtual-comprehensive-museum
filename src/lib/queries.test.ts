@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { openDb, type Db } from "@/db";
+import { eq } from "drizzle-orm";
 import { artworks, images } from "@/db/schema";
-import { getArtwork, listArtworks, listGalleryArtworks } from "./queries";
+import { getArtwork, getRelatedRecords, listArtworks, listGalleryArtworks } from "./queries";
 
 const OPEN = "https://img.example.org/open.jpg";
 const BLOCKED = "https://img.example.org/blocked.jpg";
@@ -55,5 +56,15 @@ describe("public queries", () => {
 
     await db.update(artworks).set({ dimensionConfidence: "estimated" });
     expect(await listGalleryArtworks(db)).toEqual([]);
+  });
+
+  it("hides confirmed duplicates from lists but links them from the kept record", async () => {
+    await db.update(artworks).set({ duplicateOf: 1 }).where(eq(artworks.id, 2));
+    expect((await listArtworks(db)).items.map((a) => a.id)).toEqual([1]);
+    const kept = (await getArtwork(db, 1))!;
+    expect((await getRelatedRecords(db, kept)).map((r) => r.id)).toEqual([2]);
+    const hidden = (await getArtwork(db, 2))!;
+    expect(hidden.duplicateOf).toBe(1);
+    expect((await getRelatedRecords(db, hidden)).map((r) => r.id)).toEqual([1]);
   });
 });

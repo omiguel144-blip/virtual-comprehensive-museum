@@ -46,6 +46,8 @@ export default async function GalleryPage({ searchParams }: PageProps<"/gallery"
       rightsStatement: w.image.rightsStatement,
       attributionText: w.image.attributionText,
       sourceRecordUrl: w.sourceRecordUrl,
+      thumbnailUrl: w.image.thumbnailUrl,
+      imageUrl: w.image.imageUrl,
     };
   });
 

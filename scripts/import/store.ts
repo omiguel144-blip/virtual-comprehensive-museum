@@ -8,7 +8,12 @@ export function upsertArtwork(db: Db, artwork: NewArtwork): number {
     .values(artwork)
     .onConflictDoUpdate({
       target: [artworks.institution, artworks.sourceRecordId],
-      set: { ...artwork, updatedAt: sql`CURRENT_TIMESTAMP` },
+      set: {
+        ...artwork,
+        // Keep a known Wikidata ID if this source doesn't provide one.
+        wikidataId: sql`coalesce(excluded.wikidata_id, ${artworks.wikidataId})`,
+        updatedAt: sql`CURRENT_TIMESTAMP`,
+      },
     })
     .returning({ id: artworks.id })
     .all();
