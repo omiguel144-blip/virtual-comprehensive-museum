@@ -21,23 +21,28 @@ export function upsertArtwork(db: Db, artwork: NewArtwork): number {
 }
 
 /**
- * Replaces the importer-managed image for an artwork. Rows a human has
- * touched (manualOverride) are left alone so imports never undo a takedown.
+ * Replaces the importer-managed image for an artwork (one per artwork), even
+ * when the source changed its URL. Rows a human has touched (manualOverride)
+ * are left alone so imports never undo a takedown.
  * Returns false when a manual override blocked the write.
  */
 export function upsertImage(db: Db, artworkId: number, image: Omit<NewImage, "artworkId">): boolean {
-  const existing = db.select().from(images).where(eq(images.artworkId, artworkId)).all();
+  const existing = db.select().from(images).where(eq(images.artworkId, artworkId)).orderBy(images.id).all();
   if (existing.some((row) => row.manualOverride)) return false;
 
-  const same = existing.find((row) => row.imageUrl === image.imageUrl);
-  if (same) {
-    db.update(images)
-      .set({ ...image, updatedAt: sql`CURRENT_TIMESTAMP` })
-      .where(and(eq(images.id, same.id), eq(images.manualOverride, false)))
-      .run();
-  } else {
-    db.insert(images).values({ ...image, artworkId }).run();
-  }
+  const [keep, ...extra] = existing;
+  db.transaction((tx) => {
+    if (keep) {
+      tx.update(images)
+        .set({ ...image, updatedAt: sql`CURRENT_TIMESTAMP` })
+        .where(and(eq(images.id, keep.id), eq(images.manualOverride, false)))
+        .run();
+    } else {
+      tx.insert(images).values({ ...image, artworkId }).run();
+    }
+    // Older importer rows with outdated URLs would otherwise be shown first.
+    for (const row of extra) tx.delete(images).where(eq(images.id, row.id)).run();
+  });
   return true;
 }
 

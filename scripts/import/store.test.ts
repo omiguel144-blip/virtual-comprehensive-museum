@@ -31,6 +31,24 @@ describe("import store", () => {
     expect(row).toMatchObject({ wikidataId: "Q1", duplicateOf: other });
   });
 
+  it("replaces the image row when the source changes its URL", () => {
+    const db = openDb(":memory:");
+    const id = upsertArtwork(db, artwork);
+    upsertImage(db, id, image);
+    upsertImage(db, id, { ...image, imageUrl: "https://img.t.org/new.jpg" });
+    const rows = db.select().from(images).where(eq(images.artworkId, id)).all();
+    expect(rows.map((r) => r.imageUrl)).toEqual(["https://img.t.org/new.jpg"]);
+  });
+
+  it("cleans up duplicate importer rows left by older versions", () => {
+    const db = openDb(":memory:");
+    const id = upsertArtwork(db, artwork);
+    db.insert(images).values([{ ...image, artworkId: id }, { ...image, artworkId: id, imageUrl: "https://img.t.org/b.jpg" }]).run();
+    upsertImage(db, id, { ...image, imageUrl: "https://img.t.org/c.jpg" });
+    const rows = db.select().from(images).where(eq(images.artworkId, id)).all();
+    expect(rows.map((r) => r.imageUrl)).toEqual(["https://img.t.org/c.jpg"]);
+  });
+
   it("never overwrites an image a human withdrew", () => {
     const db = openDb(":memory:");
     const id = upsertArtwork(db, artwork);

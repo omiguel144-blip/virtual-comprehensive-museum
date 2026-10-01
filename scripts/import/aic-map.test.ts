@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { artworkFromAic, decideAicImage, decideAicVerification, isAicPainting, type AicArtwork } from "./aic-map";
+import { aicImageUrl, artworkFromAic, decideAicImage, decideAicVerification, isAicPainting, type AicArtwork } from "./aic-map";
 
 const record: AicArtwork = {
   id: 100026,
@@ -62,8 +62,29 @@ describe("AIC mapping", () => {
   });
 });
 
+describe("aicImageUrl", () => {
+  it("never asks the IIIF server to upscale", () => {
+    expect(aicImageUrl("x", 843, 420)).toBe("https://www.artic.edu/iiif/2/x/full/420,/0/default.jpg");
+    expect(aicImageUrl("x", 1686, 2000)).toBe("https://www.artic.edu/iiif/2/x/full/1686,/0/default.jpg");
+    expect(aicImageUrl("x", 843, null)).toBe("https://www.artic.edu/iiif/2/x/full/843,/0/default.jpg");
+  });
+
+  it("caps narrow images at import time", () => {
+    const d = decideAicImage({ ...record, thumbnail: { width: 240, height: 768 } }, "now");
+    expect(d.image).toMatchObject({
+      imageUrl: expect.stringContaining("/full/240,/"),
+      thumbnailUrl: expect.stringContaining("/full/240,/"),
+    });
+  });
+});
+
 describe("decideAicVerification", () => {
-  const stored = "https://www.artic.edu/iiif/2/abc/full/1686,/0/default.jpg";
+  const stored = {
+    imageUrl: "https://www.artic.edu/iiif/2/abc/full/1686,/0/default.jpg",
+    thumbnailUrl: "https://www.artic.edu/iiif/2/abc/full/843,/0/default.jpg",
+    pixelWidth: 2000,
+    pixelHeight: 1500,
+  };
   const live = { id: 1, is_public_domain: true, image_id: "abc", copyright_notice: null };
 
   it("confirms unchanged public-domain images", () => {
@@ -75,6 +96,18 @@ describe("decideAicVerification", () => {
       action: "update",
       imageUrl: "https://www.artic.edu/iiif/2/xyz/full/1686,/0/default.jpg",
       thumbnailUrl: "https://www.artic.edu/iiif/2/xyz/full/843,/0/default.jpg",
+      pixelWidth: 2000,
+      pixelHeight: 1500,
+    });
+  });
+
+  it("fixes stored URLs that ask a narrow image to upscale", () => {
+    const d = decideAicVerification(stored, { ...live, thumbnail: { width: 420, height: 768 } });
+    expect(d).toMatchObject({
+      action: "update",
+      imageUrl: "https://www.artic.edu/iiif/2/abc/full/420,/0/default.jpg",
+      thumbnailUrl: "https://www.artic.edu/iiif/2/abc/full/420,/0/default.jpg",
+      pixelWidth: 420,
     });
   });
 

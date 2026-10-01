@@ -32,9 +32,14 @@ export const isAicPainting = (a: Pick<AicArtwork, "artwork_type_title">) => a.ar
 
 const orNull = (v: string | null | undefined) => (v && v.trim() ? v.trim() : null);
 
-/** AIC's recommended IIIF sizes: 843px wide for common use, larger for close-ups. */
-export function aicImageUrl(imageId: string, width: 400 | 843 | 1686) {
-  return `${AIC_IIIF}/${imageId}/full/${width},/0/default.jpg`;
+/**
+ * AIC's recommended IIIF sizes: 843px wide for common use, larger for
+ * close-ups. AIC's IIIF server refuses to upscale (HTTP 403), so a request is
+ * capped at the source image's own width when that is known.
+ */
+export function aicImageUrl(imageId: string, width: 400 | 843 | 1686, sourceWidth?: number | null) {
+  const w = sourceWidth && sourceWidth > 0 ? Math.min(width, Math.floor(sourceWidth)) : width;
+  return `${AIC_IIIF}/${imageId}/full/${w},/0/default.jpg`;
 }
 
 export function artworkFromAic(a: AicArtwork): NewArtwork {
@@ -74,9 +79,10 @@ export function decideAicImage(a: AicArtwork, fallbackCheckedAt: string): ImageD
   if (!imageId) return { approved: false, reason: "no image_id", image: null };
   if (!a.is_public_domain) return { approved: false, reason: "not public domain", image: null };
 
+  const sourceWidth = a.thumbnail?.width;
   const image = {
-    imageUrl: aicImageUrl(imageId, 1686),
-    thumbnailUrl: aicImageUrl(imageId, 843),
+    imageUrl: aicImageUrl(imageId, 1686, sourceWidth),
+    thumbnailUrl: aicImageUrl(imageId, 843, sourceWidth),
     pixelWidth: a.thumbnail?.width ?? null,
     pixelHeight: a.thumbnail?.height ?? null,
     rightsBasis: "CC0" as const,
@@ -99,13 +105,21 @@ export function decideAicImage(a: AicArtwork, fallbackCheckedAt: string): ImageD
 }
 
 /** Fields requested from the live AIC API when re-verifying stored images. */
-export const AIC_VERIFY_FIELDS = "id,is_public_domain,image_id,copyright_notice";
+export const AIC_VERIFY_FIELDS = "id,is_public_domain,image_id,copyright_notice,thumbnail";
 
-export type AicLiveRecord = Pick<AicArtwork, "id" | "is_public_domain" | "image_id" | "copyright_notice">;
+export type AicLiveRecord = Pick<AicArtwork, "id" | "is_public_domain" | "image_id" | "copyright_notice"> & {
+  thumbnail?: AicArtwork["thumbnail"];
+};
 
 export type AicVerification =
   | { action: "confirm" }
-  | { action: "update"; imageUrl: string; thumbnailUrl: string }
+  | {
+      action: "update";
+      imageUrl: string;
+      thumbnailUrl: string;
+      pixelWidth: number | null;
+      pixelHeight: number | null;
+    }
   | { action: "block"; reason: string };
 
 /**
@@ -113,13 +127,20 @@ export type AicVerification =
  * a year old, so the live record decides: anything not clearly still open
  * access is blocked.
  */
-export function decideAicVerification(storedImageUrl: string, live: AicLiveRecord | undefined): AicVerification {
+export function decideAicVerification(
+  stored: { imageUrl: string; thumbnailUrl: string | null; pixelWidth: number | null; pixelHeight: number | null },
+  live: AicLiveRecord | undefined,
+): AicVerification {
   if (!live) return { action: "block", reason: "record no longer in the AIC API" };
   if (!live.is_public_domain) return { action: "block", reason: "no longer public domain" };
   if (orNull(live.copyright_notice)) return { action: "block", reason: "copyright notice added" };
   const imageId = orNull(live.image_id);
   if (!imageId) return { action: "block", reason: "image removed" };
-  const imageUrl = aicImageUrl(imageId, 1686);
-  if (imageUrl === storedImageUrl) return { action: "confirm" };
-  return { action: "update", imageUrl, thumbnailUrl: aicImageUrl(imageId, 843) };
+  // Live dimensions win; fall back to stored ones if the API omits them.
+  const pixelWidth = live.thumbnail?.width ?? stored.pixelWidth ?? null;
+  const pixelHeight = live.thumbnail?.height ?? stored.pixelHeight ?? null;
+  const imageUrl = aicImageUrl(imageId, 1686, pixelWidth);
+  const thumbnailUrl = aicImageUrl(imageId, 843, pixelWidth);
+  if (imageUrl === stored.imageUrl && thumbnailUrl === stored.thumbnailUrl) return { action: "confirm" };
+  return { action: "update", imageUrl, thumbnailUrl, pixelWidth, pixelHeight };
 }

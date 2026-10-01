@@ -26,6 +26,7 @@ function setup() {
     });
     upsertImage(db, artworkId, {
       imageUrl: url(imageId),
+      thumbnailUrl: url(imageId).replace("1686", "843"),
       rightsBasis: "CC0",
       displayStatus: "APPROVED",
       rightsEvidenceUrl: "https://api.artic.edu",

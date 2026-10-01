@@ -24,7 +24,15 @@ export async function verifyAicImages(
   { pauseMs = 1000 }: { pauseMs?: number } = {},
 ) {
   const rows = db
-    .select({ imageId: images.id, imageUrl: images.imageUrl, status: images.displayStatus, sourceId: artworks.sourceRecordId })
+    .select({
+      imageId: images.id,
+      imageUrl: images.imageUrl,
+      thumbnailUrl: images.thumbnailUrl,
+      pixelWidth: images.pixelWidth,
+      pixelHeight: images.pixelHeight,
+      status: images.displayStatus,
+      sourceId: artworks.sourceRecordId,
+    })
     .from(images)
     .innerJoin(artworks, eq(images.artworkId, artworks.id))
     .where(and(eq(artworks.institution, AIC_INSTITUTION), eq(images.manualOverride, false)))
@@ -47,7 +55,7 @@ export async function verifyAicImages(
 
     for (const row of batch) {
       report.checked++;
-      const decision = decideAicVerification(row.imageUrl, live.get(row.sourceId));
+      const decision = decideAicVerification(row, live.get(row.sourceId));
       const where = and(eq(images.id, row.imageId), eq(images.manualOverride, false));
       if (decision.action === "confirm") {
         report.confirmed++;
@@ -58,6 +66,8 @@ export async function verifyAicImages(
           .set({
             imageUrl: decision.imageUrl,
             thumbnailUrl: decision.thumbnailUrl,
+            pixelWidth: decision.pixelWidth,
+            pixelHeight: decision.pixelHeight,
             rightsCheckedAt: checkedAt,
             updatedAt: sql`CURRENT_TIMESTAMP`,
           })
