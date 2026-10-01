@@ -16,10 +16,11 @@
     "takedown": "tsx scripts/takedown.ts",
     "import:aic": "tsx scripts/import/aic.ts",
     "import:cma": "tsx scripts/import/cma.ts",
-    "import:all": "npm run import:met && npm run import:aic && npm run import:cma && npm run dedupe",
+    "import:all": "npm run import:met && npm run import:aic && npm run import:cma && npm run dedupe && npm run classify",
     "check:images": "tsx scripts/check-images.ts",
     "dedupe": "tsx scripts/dedupe.ts",
-    "verify:aic": "tsx scripts/import/aic-verify.ts"
+    "verify:aic": "tsx scripts/import/aic-verify.ts",
+    "classify": "tsx scripts/classify.ts"
   },
   "dependencies": {
     "@react-three/fiber": "^9.8.1",

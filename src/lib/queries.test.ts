@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { openDb, type Db } from "@/db";
+import { backfillDerived, openDb, type Db } from "@/db";
 import { eq } from "drizzle-orm";
 import { artworks, images } from "@/db/schema";
-import { getArtwork, getRelatedRecords, listArtworks, listGalleryArtworks } from "./queries";
+import { getArtwork, getRelatedRecords, listArtworks, listGalleries, listGalleryArtworks, searchWords } from "./queries";
 
 const OPEN = "https://img.example.org/open.jpg";
 const BLOCKED = "https://img.example.org/blocked.jpg";
@@ -25,6 +25,7 @@ beforeEach(async () => {
     { artworkId: 1, imageUrl: OPEN, ...approved },
     { artworkId: 2, imageUrl: BLOCKED, ...approved, displayStatus: "WITHDRAWN" },
   ]);
+  backfillDerived(db);
 });
 
 describe("public queries", () => {
@@ -50,12 +51,19 @@ describe("public queries", () => {
 
   it("gallery only includes approved images with measured sizes", async () => {
     await db.update(artworks).set({ heightCm: 50, widthCm: 40, dimensionConfidence: "measured" });
-    const gallery = await listGalleryArtworks(db);
-    expect(gallery.map((a) => a.id)).toEqual([1]);
+    const key = (await getArtwork(db, 1))!.galleryKey!;
+    const gallery = await listGalleryArtworks(db, { galleryKey: key });
+    expect(gallery.items.map((a) => a.id)).toEqual([1]);
     expect(JSON.stringify(gallery)).not.toContain(BLOCKED);
+    const search = await listGalleryArtworks(db, { q: "work" });
+    expect(search.items.map((a) => a.id)).toEqual([1]);
+    expect(JSON.stringify(search)).not.toContain(BLOCKED);
+    const galleries = await listGalleries(db);
+    expect(galleries.map((g) => g.coverId)).toEqual([1]);
 
     await db.update(artworks).set({ dimensionConfidence: "estimated" });
-    expect(await listGalleryArtworks(db)).toEqual([]);
+    expect((await listGalleryArtworks(db, { galleryKey: key })).items).toEqual([]);
+    expect(await listGalleries(db)).toEqual([]);
   });
 
   it("hides confirmed duplicates from lists but links them from the kept record", async () => {
@@ -66,5 +74,20 @@ describe("public queries", () => {
     const hidden = (await getArtwork(db, 2))!;
     expect(hidden.duplicateOf).toBe(1);
     expect((await getRelatedRecords(db, hidden)).map((r) => r.id)).toEqual([1]);
+  });
+
+  it("matches every word, in any field, ignoring accents and case", async () => {
+    await db.update(artworks).set({ title: "Crucifixión of Saint Andrew", artistName: "Caravaggio", galleryKey: null }).where(eq(artworks.id, 1));
+    backfillDerived(db);
+    const ids = async (q: string) => (await listArtworks(db, { q })).items.map((a) => a.id);
+    expect(await ids("caravaggio")).toEqual([1]);
+    expect(await ids("Caravaggio saint")).toEqual([1]);
+    expect(await ids("crucifixion")).toEqual([1]);
+    expect(await ids("caravaggio portrait")).toEqual([]);
+  });
+
+  it("escapes LIKE wildcards in queries", () => {
+    expect(searchWords("100% _test_ Café")).toEqual(["100", "test", "cafe"]);
+    expect(searchWords("")).toEqual([]);
   });
 });

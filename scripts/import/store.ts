@@ -1,8 +1,11 @@
 import { and, eq, sql } from "drizzle-orm";
 import type { Db } from "../../src/db";
 import { artworks, images, type NewArtwork, type NewImage } from "../../src/db/schema";
+import { deriveFields } from "../../src/lib/classify";
 
-export function upsertArtwork(db: Db, artwork: NewArtwork): number {
+export function upsertArtwork(db: Db, input: NewArtwork): number {
+  // Region, period, gallery, search text and display mode are always derived.
+  const artwork = { ...input, ...deriveFields(input) };
   const [row] = db
     .insert(artworks)
     .values(artwork)

@@ -25,6 +25,13 @@ export const DISPLAY_STATUSES = [
 ] as const;
 export type DisplayStatus = (typeof DISPLAY_STATUSES)[number];
 
+export const OBJECT_TYPES = ["painting", "textile", "work_on_paper"] as const;
+export type ObjectType = (typeof OBJECT_TYPES)[number];
+
+/** How the 3D gallery presents a work: on a wall, in a tabletop case, or in a long scroll case. */
+export const DISPLAY_MODES = ["wall", "case", "scroll_case"] as const;
+export type DisplayMode = (typeof DISPLAY_MODES)[number];
+
 export const DIMENSION_CONFIDENCE = ["measured", "estimated", "unknown"] as const;
 export type DimensionConfidence = (typeof DIMENSION_CONFIDENCE)[number];
 
@@ -63,6 +70,14 @@ export const artworks = sqliteTable(
     })
       .notNull()
       .default("unknown"),
+    objectType: text("object_type", { enum: OBJECT_TYPES }).notNull().default("painting"),
+    displayMode: text("display_mode", { enum: DISPLAY_MODES }).notNull().default("wall"),
+    // Curatorial grouping, derived by src/lib/classify.ts (recompute with `npm run classify`).
+    region: text("region"),
+    period: text("period"),
+    galleryKey: text("gallery_key"),
+    // Lowercased, accent-folded text for search.
+    searchText: text("search_text"),
     // Shared identifier across collections (e.g. "Q87480807"), used for deduplication.
     wikidataId: text("wikidata_id"),
     // Set when this record is a confirmed duplicate of another; hidden from lists.
@@ -74,6 +89,7 @@ export const artworks = sqliteTable(
   (t) => [
     uniqueIndex("artworks_source_unique").on(t.institution, t.sourceRecordId),
     index("artworks_wikidata_idx").on(t.wikidataId),
+    index("artworks_gallery_idx").on(t.galleryKey),
     index("artworks_duplicate_idx").on(t.duplicateOf),
     index("artworks_year_idx").on(t.yearStart),
     index("artworks_artist_idx").on(t.artistName),

@@ -13,10 +13,22 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       {/* Browser extensions (e.g. Grammarly) add attributes to <body>; ignore those mismatches. */}
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
         <header className="border-b border-border">
-          <nav className="mx-auto flex max-w-6xl items-baseline justify-between gap-4 px-4 py-4">
+          <nav className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-3 px-4 py-4">
             <Link href="/" className="font-serif text-xl tracking-tight">
               Virtual Comprehensive Museum
             </Link>
+            <form action="/" role="search" className="order-last w-full sm:order-none sm:w-auto sm:flex-1 sm:max-w-sm">
+              <label className="sr-only" htmlFor="site-search">
+                Search the collection
+              </label>
+              <input
+                id="site-search"
+                name="q"
+                type="search"
+                placeholder="Search artists, titles, places…"
+                className="w-full rounded-full border border-border bg-surface px-4 py-1.5 text-sm"
+              />
+            </form>
             <span className="flex gap-5 text-sm">
               <Link href="/gallery" className="text-muted hover:text-foreground">
                 Gallery

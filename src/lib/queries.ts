@@ -1,6 +1,7 @@
 import { and, asc, count, eq, gte, inArray, isNull, like, lte, or, sql, type SQL } from "drizzle-orm";
 import { artworks, images, type Artwork } from "@/db/schema";
 import type { Db } from "@/db";
+import { fold } from "./regions";
 import { getDisplayImage, type DisplayImage } from "./rights";
 
 /**
@@ -40,6 +41,15 @@ async function attachImages(db: Db, rows: Artwork[]): Promise<PublicArtwork[]> {
   });
 }
 
+/** Splits a query into accent-folded words; LIKE wildcards are escaped away. */
+export function searchWords(q: string | null | undefined): string[] {
+  return fold(q)
+    .replace(/[%_\\]/g, " ")
+    .split(/[^a-z0-9']+/)
+    .filter((w) => w.length > 0)
+    .slice(0, 8);
+}
+
 // Mirrors the gate's cheap checks in SQL so "with images" filtering and counts
 // stay close; the gate itself still makes the final call per row.
 const hasApprovedImage = sql`exists (select 1 from ${images} where ${images.artworkId} = ${artworks.id} and ${images.displayStatus} = 'APPROVED' and ${images.rightsBasis} != 'UNKNOWN')`;
@@ -47,17 +57,9 @@ const hasApprovedImage = sql`exists (select 1 from ${images} where ${images.artw
 function buildWhere(filters: CatalogFilters): SQL | undefined {
   // Confirmed duplicates are reachable from their canonical record, not listed.
   const conditions: SQL[] = [isNull(artworks.duplicateOf)];
-  const q = filters.q?.trim();
-  if (q) {
-    const pattern = `%${q}%`;
-    conditions.push(
-      or(
-        like(artworks.title, pattern),
-        like(artworks.artistName, pattern),
-        like(artworks.medium, pattern),
-        like(artworks.culture, pattern),
-      )!,
-    );
+  // Every word must appear somewhere (title, artist, medium, culture, region, period...).
+  for (const word of searchWords(filters.q)) {
+    conditions.push(like(artworks.searchText, `%${word}%`));
   }
   if (filters.century) {
     const c = filters.century;
@@ -115,33 +117,87 @@ export async function listInstitutions(db: Db): Promise<string[]> {
   return rows.map((r) => r.institution);
 }
 
-export type GalleryFilters = { century?: number; institution?: string; limit?: number };
+export const ROOM_SIZE = 30;
+
+export type HangableArtwork = PublicArtwork & { image: DisplayImage; heightCm: number; widthCm: number };
 
 /**
- * Paintings for the 3D room: only works with an image that passes the rights
- * gate and a measured (not estimated) physical size, so scale is honest.
+ * Works that can hang in 3D: an image that passes the rights gate and a
+ * measured (not estimated) physical size, so scale is honest.
  */
-export async function listGalleryArtworks(db: Db, filters: GalleryFilters = {}) {
-  const limit = Math.min(Math.max(filters.limit ?? 12, 1), 24);
-  const where = and(
-    buildWhere({ century: filters.century, institution: filters.institution, withImages: true }),
+function hangableWhere(extra: SQL | undefined) {
+  return and(
+    buildWhere({ withImages: true }),
+    extra,
     eq(artworks.dimensionConfidence, "measured"),
-    // Skip miniatures and huge works that don't read well in one room.
-    gte(artworks.heightCm, 15),
-    lte(artworks.heightCm, 380),
-    gte(artworks.widthCm, 15),
-    lte(artworks.widthCm, 600),
+    // Skip fragments and works too large for a room.
+    gte(artworks.heightCm, 5),
+    lte(artworks.heightCm, 450),
+    gte(artworks.widthCm, 5),
+    lte(artworks.widthCm, 1500),
   );
+}
+
+export type GallerySummary = {
+  galleryKey: string;
+  region: string;
+  period: string;
+  count: number;
+  startYear: number | null;
+  coverId: number;
+};
+
+/** Every gallery that has hangable works, with a count and a cover work (the largest). */
+export async function listGalleries(db: Db): Promise<GallerySummary[]> {
+  const rows = await db
+    .select({
+      galleryKey: artworks.galleryKey,
+      region: artworks.region,
+      period: artworks.period,
+      count: count(),
+      startYear: sql<number | null>`min(${artworks.yearStart})`,
+      // SQLite returns the row holding the max() for bare columns.
+      area: sql<number>`max(${artworks.heightCm} * ${artworks.widthCm})`,
+      coverId: artworks.id,
+    })
+    .from(artworks)
+    .where(hangableWhere(sql`${artworks.galleryKey} is not null`))
+    .groupBy(artworks.galleryKey);
+  return rows
+    .filter((r) => r.galleryKey && r.region && r.period)
+    .map((r) => ({
+      galleryKey: r.galleryKey!,
+      region: r.region!,
+      period: r.period!,
+      count: r.count,
+      startYear: r.startYear,
+      coverId: r.coverId,
+    }))
+    .sort((a, b) => (a.startYear ?? Infinity) - (b.startYear ?? Infinity));
+}
+
+export type GalleryQuery = { galleryKey?: string; q?: string; room?: number };
+
+/** One room's worth of works (up to ROOM_SIZE), in chronological order. */
+export async function listGalleryArtworks(db: Db, query: GalleryQuery) {
+  const extra = query.galleryKey
+    ? eq(artworks.galleryKey, query.galleryKey)
+    : buildWhere({ q: query.q });
+  if (!query.galleryKey && searchWords(query.q).length === 0) return { items: [] as HangableArtwork[], total: 0, room: 1, rooms: 0 };
+  const where = hangableWhere(extra);
+  const [{ total }] = await db.select({ total: count() }).from(artworks).where(where);
+  const rooms = Math.max(1, Math.ceil(total / ROOM_SIZE));
+  const room = Math.min(Math.max(query.room ?? 1, 1), rooms);
   const rows = await db
     .select()
     .from(artworks)
     .where(where)
-    .orderBy(asc(artworks.yearStart), asc(artworks.id))
-    .limit(limit * 2);
+    .orderBy(sql`${artworks.yearStart} is null`, asc(artworks.yearStart), asc(artworks.artistName), asc(artworks.id))
+    .limit(ROOM_SIZE)
+    .offset((room - 1) * ROOM_SIZE);
   // The SQL filter mirrors the gate; the gate itself makes the final call.
-  return (await attachImages(db, rows))
-    .filter((a): a is PublicArtwork & { image: DisplayImage; heightCm: number; widthCm: number } =>
-      Boolean(a.image && a.heightCm && a.widthCm),
-    )
-    .slice(0, limit);
+  const items = (await attachImages(db, rows)).filter((a): a is HangableArtwork =>
+    Boolean(a.image && a.heightCm && a.widthCm),
+  );
+  return { items, total, room, rooms };
 }

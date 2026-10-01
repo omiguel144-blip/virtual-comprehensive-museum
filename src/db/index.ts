@@ -3,6 +3,8 @@ import { drizzle } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import fs from "node:fs";
 import path from "node:path";
+import { eq, isNull } from "drizzle-orm";
+import { deriveFields } from "@/lib/classify";
 import * as schema from "./schema";
 
 export function databasePath(): string {
@@ -23,6 +25,18 @@ export function openDb(file = databasePath()) {
 
 export type Db = ReturnType<typeof openDb>;
 
+/** Fills curatorial fields for rows imported before they existed. */
+export function backfillDerived(db: Db): number {
+  const rows = db.select().from(schema.artworks).where(isNull(schema.artworks.galleryKey)).all();
+  if (rows.length === 0) return 0;
+  db.transaction((tx) => {
+    for (const row of rows) {
+      tx.update(schema.artworks).set(deriveFields(row)).where(eq(schema.artworks.id, row.id)).run();
+    }
+  });
+  return rows.length;
+}
+
 /** Number of migrations on disk; changes when a pull brings a new one. */
 export function migrationCount(folder = migrationsFolder()): number {
   try {
@@ -39,6 +53,7 @@ export function getDb(): Db {
   if (!globalForDb.museumDb) {
     globalForDb.museumDb = openDb();
     globalForDb.museumDbMigrations = migrationCount();
+    backfillDerived(globalForDb.museumDb);
   } else if (process.env.NODE_ENV !== "production") {
     // A long-running dev server can hot-reload code that expects a newer
     // schema; apply any new migrations to the open connection.
@@ -46,6 +61,7 @@ export function getDb(): Db {
     if (count !== globalForDb.museumDbMigrations) {
       migrate(globalForDb.museumDb, { migrationsFolder: migrationsFolder() });
       globalForDb.museumDbMigrations = count;
+      backfillDerived(globalForDb.museumDb);
     }
   }
   return globalForDb.museumDb;

@@ -86,9 +86,17 @@ export default async function CatalogPage({ searchParams }: PageProps<"/">) {
         <button className="rounded bg-foreground px-4 py-2 text-sm text-background">Filter</button>
       </form>
 
-      <p className="text-sm text-muted">
-        {total.toLocaleString()} {total === 1 ? "work" : "works"}
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+        <p className="text-muted">
+          {total.toLocaleString()} {total === 1 ? "work" : "works"}
+          {q && <> for &ldquo;{q}&rdquo;</>}
+        </p>
+        {q && total > 0 && (
+          <Link href={`/gallery/search?q=${encodeURIComponent(q)}`} className="rounded border border-foreground px-3 py-1.5">
+            Hang these results in 3D
+          </Link>
+        )}
+      </div>
 
       {items.length === 0 ? (
         <p className="py-16 text-center text-muted">
