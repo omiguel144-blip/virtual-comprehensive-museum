@@ -37,7 +37,7 @@ Chicago's dump is refreshed only occasionally (the current one is from February 
 
 - `imagesApproved`: works now shown with an image.
 - `rejected`: why other candidates stayed catalog-only (for example, no image on the Met record).
-- `errorCount`: requests that failed, usually the Met API refusing or rate-limiting a few calls. Those works stay catalog-only; rerun the import to retry them. The first few errors are printed after the summary.
+- `errorCount`: requests that failed, usually the Met API refusing or rate-limiting a few calls. Those works stay catalog-only; rerun the import to retry them, or run `npm run import:met:retry` to re-check only the objects the last Met run couldn't fetch (about a minute). The first few errors are printed after the summary.
 
 Warnings during `npm install` (deprecated packages, audit notices, the `allow-scripts` notice) are expected and don't affect the app.
 

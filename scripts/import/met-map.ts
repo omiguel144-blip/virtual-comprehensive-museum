@@ -129,3 +129,13 @@ export function decideImage(obj: MetObject, checkedAt: string): ImageDecision {
   }
   return { approved: true, image: { ...image, displayStatus: "APPROVED" } };
 }
+
+/** Object IDs from a previous report's errors ("36070: HTTP 403 for object 36070"). */
+export function failedIdsFromReport(report: unknown): string[] {
+  const errors = (report as { errors?: unknown })?.errors;
+  if (!Array.isArray(errors)) return [];
+  const ids = errors
+    .map((e) => (typeof e === "string" ? e.match(/^(\d+):/)?.[1] : undefined))
+    .filter((id): id is string => Boolean(id));
+  return [...new Set(ids)];
+}

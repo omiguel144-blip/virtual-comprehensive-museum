@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { artworkFromCsv, decideImage, isPaintingRow, isTextileRow, type MetObject } from "./met-map";
+import { artworkFromCsv, decideImage, failedIdsFromReport, isPaintingRow, isTextileRow, type MetObject } from "./met-map";
 
 const obj: MetObject = {
   objectID: 436535,
@@ -79,5 +79,15 @@ describe("Met textiles", () => {
     expect(artworkFromCsv(tapestry).objectType).toBe("textile");
     expect(isTextileRow({ ...tapestry, "Object Name": "Fragment", Title: "Tapestry fragment" })).toBe(false);
     expect(isTextileRow({ ...tapestry, Classification: "Paintings" })).toBe(false);
+  });
+});
+
+describe("failedIdsFromReport", () => {
+  it("extracts unique object IDs from report errors", () => {
+    expect(
+      failedIdsFromReport({ errors: ["36070: HTTP 403 for object 36070", "36457: HTTP 403", "36070: HTTP 403 again", "garbage", 5] }),
+    ).toEqual(["36070", "36457"]);
+    expect(failedIdsFromReport({})).toEqual([]);
+    expect(failedIdsFromReport(null)).toEqual([]);
   });
 });

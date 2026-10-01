@@ -20,7 +20,8 @@
     "check:images": "tsx scripts/check-images.ts",
     "dedupe": "tsx scripts/dedupe.ts",
     "verify:aic": "tsx scripts/import/aic-verify.ts",
-    "classify": "tsx scripts/classify.ts"
+    "classify": "tsx scripts/classify.ts",
+    "import:met:retry": "tsx scripts/import/met.ts --retry-failed"
   },
   "dependencies": {
     "@react-three/fiber": "^9.8.1",

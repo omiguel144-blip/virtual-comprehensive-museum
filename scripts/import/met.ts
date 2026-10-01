@@ -2,6 +2,7 @@
  * Imports paintings from The Met.
  *
  *   npx tsx scripts/import/met.ts [--limit N] [--ids 1,2,3] [--rate 4] [--catalog-only] [--csv path]
+ *   npx tsx scripts/import/met.ts --retry-failed   re-check only the objects the last run couldn't fetch
  *
  * Stage 1 reads MetObjects.csv (downloaded once to data/) and stores every
  * painting and display textile (tapestries, hangings, carpets...) as a
@@ -24,6 +25,7 @@ import {
   decideImage,
   isPaintingRow,
   isTextileRow,
+  failedIdsFromReport,
   type MetCsvRow,
   type MetObject,
 } from "./met-map";
@@ -40,7 +42,24 @@ function arg(name: string): string | undefined {
 const flag = (name: string) => process.argv.includes(`--${name}`);
 
 const limit = arg("limit") ? Number(arg("limit")) : Infinity;
-const ids = arg("ids")?.split(",").map((s) => s.trim()).filter(Boolean);
+/** IDs that failed in the newest Met report, for --retry-failed. */
+function idsFromLatestReport(): string[] {
+  const dir = path.join(process.cwd(), "reports");
+  const latest = fs.existsSync(dir)
+    ? fs.readdirSync(dir).filter((f) => /^met-.*\.json$/.test(f)).sort().at(-1)
+    : undefined;
+  if (!latest) {
+    console.error("No Met report found in reports/. Run npm run import:met first.");
+    process.exit(1);
+  }
+  const ids = failedIdsFromReport(JSON.parse(fs.readFileSync(path.join(dir, latest), "utf8")));
+  console.log(`Retrying ${ids.length} objects that failed in ${latest}`);
+  return ids;
+}
+
+const ids = flag("retry-failed")
+  ? idsFromLatestReport()
+  : arg("ids")?.split(",").map((s) => s.trim()).filter(Boolean);
 const rate = Number(arg("rate") ?? 4); // requests per second; the Met allows 80, we stay far below
 const catalogOnly = flag("catalog-only");
 const csvPath = arg("csv") ?? path.join(process.cwd(), "data", "MetObjects.csv");
@@ -72,7 +91,8 @@ async function fetchObject(id: string, attempt = 1): Promise<MetObject | null> {
   report.apiRequests++;
   const res = await fetch(`${MET_API}/objects/${id}`, { headers: { "User-Agent": USER_AGENT } });
   if (res.status === 404) return null;
-  if ((res.status === 429 || res.status >= 500) && attempt < 4) {
+  // The Met's bot protection answers 403 when requests come too steadily; back off and retry.
+  if ((res.status === 403 || res.status === 429 || res.status >= 500) && attempt < 4) {
     await sleep(2 ** attempt * 1000);
     return fetchObject(id, attempt + 1);
   }
@@ -113,9 +133,11 @@ async function main() {
     if (candidates.length) {
       console.log(`Checking images at ${rate} requests/second (about ${Math.ceil(candidates.length / rate / 60)} min)...`);
     }
+    let refusedInARow = 0;
     for (const [i, id] of candidates.entries()) {
       try {
         const obj = await fetchObject(id);
+        refusedInARow = 0;
         if (!obj) {
           reject("object not found in API");
           continue;
@@ -134,6 +156,12 @@ async function main() {
         else reject(decision.reason);
       } catch (err) {
         report.errors.push(`${id}: ${(err as Error).message}`);
+        // Several refusals in a row: give the Met a minute before continuing.
+        if (++refusedInARow >= 5) {
+          console.log("  The Met is refusing requests; pausing 60 s...");
+          await sleep(60_000);
+          refusedInARow = 0;
+        }
         const existing = db
           .select({ id: artworks.id })
           .from(artworks)
