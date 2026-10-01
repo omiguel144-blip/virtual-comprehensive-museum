@@ -53,3 +53,10 @@ test("search matches every word and finds works by artist", async ({ request }) 
   const miss = await (await request.get("/?q=landscape+nonexistentword")).text();
   expect(miss).not.toContain("Open Landscape");
 });
+
+test("the header's Gallery link opens the floor plan", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("link", { name: "Gallery", exact: true }).click();
+  await expect(page).toHaveURL(/\/gallery$/);
+  await expect(page.getByRole("heading", { name: "Galleries" })).toBeVisible();
+});
