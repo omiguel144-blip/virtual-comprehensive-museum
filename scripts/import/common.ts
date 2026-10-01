@@ -73,6 +73,7 @@ export type ImportReport = {
   finishedAt: string;
   recordsScanned: number;
   paintingRecords: number;
+  textileRecords: number;
   imageCandidates: number;
   imagesApproved: number;
   imagesPendingReview: number;
@@ -89,6 +90,7 @@ export function newReport(source: string): ImportReport {
     finishedAt: "",
     recordsScanned: 0,
     paintingRecords: 0,
+    textileRecords: 0,
     imageCandidates: 0,
     imagesApproved: 0,
     imagesPendingReview: 0,

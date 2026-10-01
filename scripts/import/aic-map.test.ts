@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { aicImageUrl, artworkFromAic, decideAicImage, decideAicVerification, isAicPainting, type AicArtwork } from "./aic-map";
+import { aicImageUrl, artworkFromAic, decideAicImage, decideAicVerification, isAicPainting, isAicTextile, type AicArtwork } from "./aic-map";
 
 const record: AicArtwork = {
   id: 100026,
@@ -116,5 +116,15 @@ describe("decideAicVerification", () => {
     expect(decideAicVerification(stored, { ...live, is_public_domain: false })).toMatchObject({ action: "block" });
     expect(decideAicVerification(stored, { ...live, copyright_notice: "© Estate" })).toMatchObject({ action: "block" });
     expect(decideAicVerification(stored, { ...live, image_id: null })).toMatchObject({ action: "block" });
+  });
+});
+
+describe("AIC textiles", () => {
+  it("imports large coverlets and rugs as textiles", () => {
+    const rug = { ...record, artwork_type_title: "Textile", title: "Rug", dimensions: "179.7 × 90 cm (70 3/4 × 35 3/8 in.)" };
+    expect(isAicTextile(rug)).toBe(true);
+    expect(artworkFromAic(rug).objectType).toBe("textile");
+    expect(isAicTextile({ ...rug, title: "Textile sample" })).toBe(false);
+    expect(isAicTextile(record)).toBe(false);
   });
 });

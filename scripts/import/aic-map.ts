@@ -1,5 +1,6 @@
 import type { NewArtwork, NewImage } from "../../src/db/schema";
 import { parseDimensions, parseYears } from "../../src/lib/dimensions";
+import { isDisplayTextile } from "../../src/lib/textiles";
 
 export const AIC_INSTITUTION = "Art Institute of Chicago";
 export const AIC_IIIF = "https://www.artic.edu/iiif/2";
@@ -30,6 +31,10 @@ export type AicArtwork = {
 
 export const isAicPainting = (a: Pick<AicArtwork, "artwork_type_title">) => a.artwork_type_title === "Painting";
 
+export const isAicTextile = (a: Pick<AicArtwork, "artwork_type_title" | "title" | "dimensions"> & { classification_titles?: string[] }) =>
+  a.artwork_type_title === "Textile" &&
+  isDisplayTextile(`${a.title ?? ""} ${(a.classification_titles ?? []).join(" ")}`, a.dimensions);
+
 const orNull = (v: string | null | undefined) => (v && v.trim() ? v.trim() : null);
 
 /**
@@ -51,6 +56,7 @@ export function artworkFromAic(a: AicArtwork): NewArtwork {
     ...parseYears(a.date_start, a.date_end),
     medium: orNull(a.medium_display),
     classification: orNull(a.artwork_type_title),
+    objectType: a.artwork_type_title === "Textile" ? "textile" : "painting",
     culture: orNull(a.place_of_origin),
     institution: AIC_INSTITUTION,
     sourceRecordId: String(a.id),

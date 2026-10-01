@@ -1,6 +1,7 @@
 import type { NewArtwork, NewImage } from "../../src/db/schema";
 import { parseWikidataId } from "../../src/lib/dedupe";
 import { parseDimensions, parseYears } from "../../src/lib/dimensions";
+import { isDisplayTextile } from "../../src/lib/textiles";
 
 export const MET_INSTITUTION = "The Metropolitan Museum of Art";
 export const MET_API = "https://collectionapi.metmuseum.org/public/collection/v1";
@@ -33,6 +34,15 @@ export function isPaintingRow(row: MetCsvRow): boolean {
   return /^paintings?\b/i.test((row["Classification"] ?? "").trim());
 }
 
+/** Tapestries, hangings, carpets and similar display textiles (see src/lib/textiles.ts). */
+export function isTextileRow(row: MetCsvRow): boolean {
+  return /^textiles\b/i.test((row["Classification"] ?? "").trim()) &&
+    isDisplayTextile(`${row["Object Name"] ?? ""} ${row["Title"] ?? ""}`, row["Dimensions"]);
+}
+
+const objectTypeFor = (classification: string | null | undefined) =>
+  /^textiles\b/i.test((classification ?? "").trim()) ? ("textile" as const) : ("painting" as const);
+
 const orNull = (v: string | null | undefined) => (v && v.trim() ? v.trim() : null);
 
 export function artworkFromCsv(row: MetCsvRow): NewArtwork {
@@ -45,6 +55,7 @@ export function artworkFromCsv(row: MetCsvRow): NewArtwork {
     ...parseYears(row["Object Begin Date"], row["Object End Date"]),
     medium: orNull(row["Medium"]),
     classification: orNull(row["Classification"]),
+    objectType: objectTypeFor(row["Classification"]),
     culture: orNull(row["Culture"]),
     institution: MET_INSTITUTION,
     sourceRecordId: id,
@@ -69,6 +80,7 @@ export function artworkFromApi(obj: MetObject): NewArtwork {
     ...parseYears(obj.objectBeginDate, obj.objectEndDate),
     medium: orNull(obj.medium),
     classification: orNull(obj.classification),
+    objectType: objectTypeFor(obj.classification),
     culture: orNull(obj.culture),
     institution: MET_INSTITUTION,
     sourceRecordId: String(obj.objectID),

@@ -14,7 +14,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { openDb } from "../../src/db";
-import { AIC_INSTITUTION, artworkFromAic, decideAicImage, isAicPainting, type AicArtwork } from "./aic-map";
+import { AIC_INSTITUTION, artworkFromAic, decideAicImage, isAicPainting, isAicTextile, type AicArtwork } from "./aic-map";
 import { runAicVerify } from "./aic-verify";
 import { applyRecord } from "./apply";
 import { downloadOnce, flag, limitArg, newReport, writeReport } from "./common";
@@ -47,13 +47,15 @@ async function main() {
     report.recordsScanned++;
     try {
       const record = JSON.parse(fs.readFileSync(path.join(artworksDir, file), "utf8")) as AicArtwork;
-      if (!isAicPainting(record)) continue;
-      report.paintingRecords++;
+      const painting = isAicPainting(record);
+      if (!painting && !isAicTextile(record)) continue;
+      if (painting) report.paintingRecords++;
+      else report.textileRecords++;
       applyRecord(db, report, artworkFromAic(record), decideAicImage(record, checkedAt));
     } catch (err) {
       report.errors.push(`${file}: ${(err as Error).message}`);
     }
-    if (report.paintingRecords >= limit) break;
+    if (report.paintingRecords + report.textileRecords >= limit) break;
     if (report.recordsScanned % 20000 === 0) console.log(`  scanned ${report.recordsScanned}/${files.length}`);
   }
 

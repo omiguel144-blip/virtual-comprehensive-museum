@@ -247,7 +247,7 @@ function CaseWork({ work, onSelect, onMismatch, onFailed }: WorkProps) {
     <group position={[work.position[0], 0, work.position[2]]} rotation={[0, work.rotationY, 0]}>
       <mesh position={[0, plinthH / 2, 0]}>
         <boxGeometry args={[caseW, plinthH, caseD]} />
-        <meshStandardMaterial color="#2a2622" roughness={0.7} />
+        <meshStandardMaterial color="#8c8174" roughness={0.85} />
       </mesh>
       {/* Linen-covered deck */}
       <mesh position={[0, plinthH + 0.005, 0]} rotation={[-Math.PI / 2, 0, 0]}>

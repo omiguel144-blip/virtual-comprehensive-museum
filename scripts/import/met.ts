@@ -4,7 +4,8 @@
  *   npx tsx scripts/import/met.ts [--limit N] [--ids 1,2,3] [--rate 4] [--catalog-only] [--csv path]
  *
  * Stage 1 reads MetObjects.csv (downloaded once to data/) and stores every
- * painting as a catalog record, with no images.
+ * painting and display textile (tapestries, hangings, carpets...) as a
+ * catalog record, with no images.
  * Stage 2 asks the Met object API for public-domain candidates and stores
  * an image only when the object record says isPublicDomain with a primaryImage.
  * Never uses the retiring v1 search endpoint.
@@ -22,6 +23,7 @@ import {
   artworkFromCsv,
   decideImage,
   isPaintingRow,
+  isTextileRow,
   type MetCsvRow,
   type MetObject,
 } from "./met-map";
@@ -49,6 +51,7 @@ const report = {
   finishedAt: "",
   csvRowsScanned: 0,
   paintingRecords: 0,
+  textileRecords: 0,
   publicDomainCandidates: 0,
   apiRequests: 0,
   imagesApproved: 0,
@@ -83,14 +86,16 @@ async function readPaintingCandidates(db: ReturnType<typeof openDb>): Promise<st
   const parser = fs.createReadStream(csvPath).pipe(parse({ columns: true, bom: true, relax_quotes: true }));
   for await (const row of parser as AsyncIterable<MetCsvRow>) {
     report.csvRowsScanned++;
-    if (!isPaintingRow(row)) continue;
-    report.paintingRecords++;
+    const painting = isPaintingRow(row);
+    if (!painting && !isTextileRow(row)) continue;
+    if (painting) report.paintingRecords++;
+    else report.textileRecords++;
     upsertArtwork(db, artworkFromCsv(row));
     if (row["Is Public Domain"] === "True") {
       report.publicDomainCandidates++;
       candidates.push(row["Object ID"].trim());
     }
-    if (report.paintingRecords >= limit) break;
+    if (report.paintingRecords + report.textileRecords >= limit) break;
   }
   return candidates;
 }

@@ -91,6 +91,13 @@ describe("cases, doors, and room size", () => {
     expect(r.length).toBeGreaterThan(5 + 2);
   });
 
+  it("caps cases per room and hangs the rest on the walls", () => {
+    const r = layoutRoom(Array.from({ length: 30 }, (_, i) => work(i, 30, 20, "case")));
+    expect(r.placements.filter((p) => p.kind === "case")).toHaveLength(8);
+    expect(r.placements.filter((p) => p.kind === "wall")).toHaveLength(22);
+    expect(r.length).toBeLessThan(40);
+  });
+
   it("has an entrance and an exit, with the exit beside the anchor", () => {
     const r = layoutRoom([work(1, 200, 250), work(2, 80, 60)]);
     expect(r.doors.map((d) => d.side)).toEqual(["west", "east"]);

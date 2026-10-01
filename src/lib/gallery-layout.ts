@@ -139,9 +139,22 @@ function hangRun(cols: Column[], wall: "north" | "south", z: number, dir: 1 | -1
 }
 
 /** Lays out one room from works already in chronological order. */
+export const MAX_CASES = 8;
+export const MAX_SCROLL_CASES = 4;
+
 export function layoutRoom(items: HangInput[]): Room {
-  const wallItems = items.filter((i) => (i.displayMode ?? "wall") === "wall");
-  const caseItems = items.filter((i) => i.displayMode === "case" || i.displayMode === "scroll_case");
+  // A few cases punctuate a room; beyond that, small works hang framed on the wall
+  // (as museums do with most miniatures), keeping the room a walkable size.
+  let cases = 0;
+  let scrolls = 0;
+  const kindOf = (i: HangInput): DisplayKind => {
+    if (i.displayMode === "case" && cases < MAX_CASES) return (cases++, "case");
+    if (i.displayMode === "scroll_case" && scrolls < MAX_SCROLL_CASES) return (scrolls++, "scroll_case");
+    return "wall";
+  };
+  const kinds = new Map(items.map((i) => [i, kindOf(i)]));
+  const wallItems = items.filter((i) => kinds.get(i) === "wall");
+  const caseItems = items.filter((i) => kinds.get(i) !== "wall").map((i) => ({ ...i, displayMode: kinds.get(i) }));
 
   // Anchor: the largest wall work that fits the end wall, if it is substantial.
   let anchor: HangInput | null = null;

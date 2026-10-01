@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { artworkFromCma, cmaArtistName, decideCmaImage, isCmaPainting } from "./cma-map";
+import { artworkFromCma, cmaArtistName, decideCmaImage, isCmaPainting, isCmaTextile } from "./cma-map";
 
 const row = {
   id: "74228",
@@ -63,5 +63,15 @@ describe("CMA mapping", () => {
     expect(decideCmaImage({ ...row, image_web: "https://elsewhere.org/a.jpg" }, "now").image?.displayStatus).toBe(
       "PENDING_REVIEW",
     );
+  });
+});
+
+describe("CMA textiles", () => {
+  it("imports tapestries as wall textiles and skips fragments", () => {
+    const tapestry = { ...row, type: "Tapestry", title: "The Triumph of Fame", measurements: "Overall: 350 x 410 cm" };
+    expect(isCmaTextile(tapestry)).toBe(true);
+    expect(artworkFromCma(tapestry).objectType).toBe("textile");
+    expect(isCmaTextile({ ...tapestry, title: "Tapestry fragment" })).toBe(false);
+    expect(isCmaTextile(row)).toBe(false);
   });
 });

@@ -11,7 +11,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { openDb } from "../../src/db";
 import { applyRecord } from "./apply";
-import { artworkFromCma, CMA_INSTITUTION, decideCmaImage, isCmaPainting, type CmaRow } from "./cma-map";
+import { artworkFromCma, CMA_INSTITUTION, decideCmaImage, isCmaPainting, isCmaTextile, type CmaRow } from "./cma-map";
 import { downloadOnce, limitArg, newReport, writeReport } from "./common";
 
 const CSV_URL = "https://media.githubusercontent.com/media/ClevelandMuseumArt/openaccess/master/data.csv";
@@ -28,14 +28,16 @@ async function main() {
 
   for await (const row of parser as AsyncIterable<CmaRow>) {
     report.recordsScanned++;
-    if (!isCmaPainting(row)) continue;
-    report.paintingRecords++;
+    const painting = isCmaPainting(row);
+    if (!painting && !isCmaTextile(row)) continue;
+    if (painting) report.paintingRecords++;
+    else report.textileRecords++;
     try {
       applyRecord(db, report, artworkFromCma(row), decideCmaImage(row, checkedAt));
     } catch (err) {
       report.errors.push(`${row["id"]}: ${(err as Error).message}`);
     }
-    if (report.paintingRecords >= limit) break;
+    if (report.paintingRecords + report.textileRecords >= limit) break;
   }
 
   writeReport("cma", report);

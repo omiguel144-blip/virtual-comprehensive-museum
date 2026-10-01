@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getDb } from "@/db";
 import { listArtworks, listInstitutions } from "@/lib/queries";
+import { REGIONS } from "@/lib/regions";
 import { ArtworkCard } from "./artwork-card";
 
 export const dynamic = "force-dynamic";
@@ -20,6 +21,8 @@ export default async function CatalogPage({ searchParams }: PageProps<"/">) {
   const centuryParam = one(params.century);
   const institution = one(params.institution);
   const withImages = one(params.images) === "1";
+  const region = one(params.region);
+  const objectType = one(params.type);
   const page = Number(one(params.page)) || 1;
 
   const db = getDb();
@@ -28,6 +31,8 @@ export default async function CatalogPage({ searchParams }: PageProps<"/">) {
       q,
       century: centuryParam ? Number(centuryParam) : undefined,
       institution: institution || undefined,
+      region: region || undefined,
+      objectType: objectType || undefined,
       withImages,
       page,
     }),
@@ -40,6 +45,8 @@ export default async function CatalogPage({ searchParams }: PageProps<"/">) {
     if (q) next.set("q", q);
     if (centuryParam) next.set("century", centuryParam);
     if (institution) next.set("institution", institution);
+    if (region) next.set("region", region);
+    if (objectType) next.set("type", objectType);
     if (withImages) next.set("images", "1");
     next.set("page", String(p));
     return `/?${next}`;
@@ -66,6 +73,25 @@ export default async function CatalogPage({ searchParams }: PageProps<"/">) {
                 {ordinal(c)} century
               </option>
             ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1 text-sm">
+          Region
+          <select name="region" defaultValue={region} className="rounded border border-border bg-surface px-3 py-2">
+            <option value="">Any</option>
+            {REGIONS.map((r) => (
+              <option key={r.key} value={r.key}>
+                {r.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1 text-sm">
+          Type
+          <select name="type" defaultValue={objectType} className="rounded border border-border bg-surface px-3 py-2">
+            <option value="">All</option>
+            <option value="painting">Paintings</option>
+            <option value="textile">Textiles</option>
           </select>
         </label>
         {institutions.length > 1 && (

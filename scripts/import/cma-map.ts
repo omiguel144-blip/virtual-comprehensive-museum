@@ -1,6 +1,7 @@
 import type { NewArtwork, NewImage } from "../../src/db/schema";
 import { parseWikidataId } from "../../src/lib/dedupe";
 import { parseDimensions, parseYears } from "../../src/lib/dimensions";
+import { isDisplayTextile } from "../../src/lib/textiles";
 
 export const CMA_INSTITUTION = "Cleveland Museum of Art";
 export const CMA_API = "https://openaccess-api.clevelandart.org/api/artworks";
@@ -10,6 +11,10 @@ const CC0_URL = "https://creativecommons.org/publicdomain/zero/1.0/";
 export type CmaRow = Record<string, string>;
 
 export const isCmaPainting = (row: CmaRow) => row["type"] === "Painting";
+
+export const isCmaTextile = (row: CmaRow) =>
+  (row["type"] === "Textile" || row["type"] === "Tapestry") &&
+  isDisplayTextile(`${row["type"]} ${row["title"] ?? ""}`, row["measurements"]);
 
 const orNull = (v: string | null | undefined) => (v && v.trim() ? v.trim() : null);
 
@@ -29,6 +34,7 @@ export function artworkFromCma(row: CmaRow): NewArtwork {
     ...parseYears(row["creation_date_earliest"], row["creation_date_latest"]),
     medium: orNull(row["technique"]),
     classification: orNull(row["type"]),
+    objectType: row["type"] === "Textile" || row["type"] === "Tapestry" ? "textile" : "painting",
     culture: orNull(row["culture"]),
     institution: CMA_INSTITUTION,
     sourceRecordId: row["id"].trim(),

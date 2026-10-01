@@ -15,6 +15,8 @@ export type PublicArtwork = Omit<Artwork, "rawSourceRecord"> & {
 
 export type CatalogFilters = {
   q?: string;
+  region?: string;
+  objectType?: string;
   century?: number;
   institution?: string;
   withImages?: boolean;
@@ -68,6 +70,8 @@ function buildWhere(filters: CatalogFilters): SQL | undefined {
     conditions.push(and(gte(artworks.yearStart, start), lte(artworks.yearStart, end))!);
   }
   if (filters.institution) conditions.push(eq(artworks.institution, filters.institution));
+  if (filters.region) conditions.push(eq(artworks.region, filters.region));
+  if (filters.objectType === "painting" || filters.objectType === "textile") conditions.push(eq(artworks.objectType, filters.objectType));
   if (filters.withImages) conditions.push(hasApprovedImage);
   return conditions.length ? and(...conditions) : undefined;
 }

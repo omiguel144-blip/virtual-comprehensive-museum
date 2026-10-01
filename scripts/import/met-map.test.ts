@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { artworkFromCsv, decideImage, isPaintingRow, type MetObject } from "./met-map";
+import { artworkFromCsv, decideImage, isPaintingRow, isTextileRow, type MetObject } from "./met-map";
 
 const obj: MetObject = {
   objectID: 436535,
@@ -69,5 +69,15 @@ describe("CSV mapping", () => {
       sourceRecordUrl: "https://www.metmuseum.org/art/collection/search/436535",
       wikidataId: "Q18393437",
     });
+  });
+});
+
+describe("Met textiles", () => {
+  it("imports tapestries and hangings from the Textiles department, not fragments", () => {
+    const tapestry = { "Object ID": "1", Classification: "Textiles-Tapestries", "Object Name": "Tapestry", Title: "The Unicorn Defends Itself", Dimensions: "145 x 158 in. (368.3 x 401.3 cm)" };
+    expect(isTextileRow(tapestry)).toBe(true);
+    expect(artworkFromCsv(tapestry).objectType).toBe("textile");
+    expect(isTextileRow({ ...tapestry, "Object Name": "Fragment", Title: "Tapestry fragment" })).toBe(false);
+    expect(isTextileRow({ ...tapestry, Classification: "Paintings" })).toBe(false);
   });
 });

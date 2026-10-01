@@ -1,13 +1,13 @@
 # Virtual Comprehensive Museum
 
-A searchable museum of painting history that shows high-quality images only when the holding institution marks them open access (or permission is on file), and links to the source for everything else. It also has a walkable 3D gallery where paintings hang at life scale.
+A searchable museum of painting history (plus tapestries, hangings, carpets and other display textiles) that shows high-quality images only when the holding institution marks them open access (or permission is on file), and links to the source for everything else. It also has a walkable 3D gallery where paintings hang at life scale.
 
 ## Quick start
 
 ```bash
 npm install
 npm run seed                          # 5 Met paintings via the Met API (needs internet)
-npm run import:met -- --limit 500     # first 500 Met paintings (downloads a ~300 MB CSV once)
+npm run import:met                    # all Met paintings and display textiles (~300 MB CSV once; about 25 min of API checks)
 npm run import:aic                    # all Art Institute of Chicago paintings (~120 MB dump), then a live re-check
 npm run import:cma                    # all Cleveland Museum of Art paintings (~130 MB CSV, ~10 s)
 npm run dev                           # http://localhost:3000
@@ -41,16 +41,21 @@ Chicago's dump is refreshed only occasionally (the current one is from February 
 
 Warnings during `npm install` (deprecated packages, audit notices, the `allow-scripts` notice) are expected and don't affect the app.
 
-## 3D gallery
+## Search
 
-Open http://localhost:3000/gallery. Pick a century room (and optionally one museum) at the top.
+The search bar at the top of every page matches every word you type against title, artist, medium, culture, region and period, ignoring accents and capitals ("caravaggio saint", "cafe arles"). The catalog adds filters for century, region, type (paintings or textiles) and museum. On any search, **Hang these results in 3D** builds a room from the matches.
 
-- Drag to look around, walk with W A S D or the arrow keys, and click a painting to walk up to it.
-- Paintings hang at their measured size (1 scene unit = 1 meter), centered at eye level, so their scale is true relative to the room and to each other.
-- Only works with an approved image **and** a measured painted-surface size are hung. Estimated sizes stay in the 2D catalog.
-- If a photo's proportions differ from the measured size (a frame or crop in the photo), it keeps its own proportions within the measured area and the info panel says so. Images are never stretched.
-- A smaller image loads first; the larger approved image loads when you walk within about 3 m.
-- Textures load through `/api/gallery-image/<id>`, which re-checks the rights gate and only fetches from the three museums' image hosts.
+## Galleries
+
+Open http://localhost:3000/gallery for the floor plan: wings (Europe, the Americas, Asia, Africa, Ancient), each region, and its period rooms, e.g. *Italy: 17th Century*, *China: Ming Dynasty (1368–1644)*, *Japan: Edo Period*, *South Asia: Mughal and Deccani Courts*.
+
+- **Regions** come from each record's culture, place of origin, artist nationality and department (`src/lib/regions.ts`); nothing is guessed from artist names. Anything unclear goes to "Other and Unassigned". After changing the rules, run `npm run classify` (it also runs automatically for records that have never been classified).
+- **Rooms** hold up to 30 works; larger galleries continue through doorways into the next room, and the last room leads to the next period.
+- **The hang** follows museum practice: a 1.45 m center line, chronological order in one loop (in along the left wall, back along the right), the largest work alone on the far wall as the sightline, small neighbors stacked in pairs, and up to eight cases (album leaves, small works) and four scroll cases down the middle.
+- **The look:** wall colors by tradition (deep red for Italian Baroque, green for Dutch, ink grey for China, indigo for Japan, light walls for modern), gilt frames for European oil paintings, silk mounts with rollers for East Asian hanging scrolls, rods for tapestries, picture lights, wall labels, a wood floor, a bench, wall text at the entrance, and titled doorways.
+- Drag to look, walk with W A S D or the arrow keys, click a work to walk up to it, and walk into (or click) a doorway to go through.
+- Works hang at their measured size (1 scene unit = 1 meter). Only works with an approved image **and** a measured painted-surface size are hung; the catalog lists everything.
+- A smaller image loads first; the larger approved image loads when you walk within about 3 m. Textures load through `/api/gallery-image/<id>`, which re-checks the rights gate and only fetches from the three museums' image hosts.
 
 ### If gallery images don't load
 
@@ -100,6 +105,8 @@ npm run test:e2e    # withdrawn images never leak into HTML, JSON, or og:image
 2. ✅ Art Institute of Chicago and Cleveland Museum of Art importers
 3. ✅ Cross-source deduplication
 4. ✅ 3D gallery room (React Three Fiber, 1 unit = 1 m, sized from unframed dimensions)
-5. Artist opt-in submissions (after legal review)
+5. ✅ Region and period galleries, search rooms, display textiles
+6. Objects on pedestals (vessels, sculpture) once real 3D models are available
+7. Artist opt-in submissions (after legal review)
 
 This is an engineering safeguard, not legal advice. Review a sample of records from each source before publishing at scale.
