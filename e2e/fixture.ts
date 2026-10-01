@@ -2,6 +2,7 @@
 import fs from "node:fs";
 import { openDb } from "../src/db";
 import { artworks, images } from "../src/db/schema";
+import { writeCached } from "../src/lib/image-cache";
 
 export const E2E_DB = "data/e2e.db";
 export const OPEN_URL = "https://images.example.org/open-full.jpg";
@@ -9,7 +10,14 @@ export const OPEN_THUMB = "https://images.example.org/open-small.jpg";
 export const BLOCKED_URL = "https://images.example.org/withdrawn-full.jpg";
 export const BLOCKED_THUMB = "https://images.example.org/withdrawn-small.jpg";
 
+export const E2E_CACHE = "data/e2e-image-cache";
+
 export function buildFixture() {
+  // A cached copy of the withdrawn image must never be served.
+  process.env.IMAGE_CACHE_DIR = E2E_CACHE;
+  fs.rmSync(E2E_CACHE, { recursive: true, force: true });
+  writeCached(BLOCKED_URL, "large", Buffer.from("cached-but-withdrawn"));
+  writeCached(BLOCKED_THUMB, "small", Buffer.from("cached-but-withdrawn"));
   for (const suffix of ["", "-wal", "-shm"]) fs.rmSync(E2E_DB + suffix, { force: true });
   const db = openDb(E2E_DB);
   const approved = {

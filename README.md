@@ -55,7 +55,7 @@ Open http://localhost:3000/gallery for the floor plan: wings (Europe, the Americ
 - **The look:** wall colors by tradition (deep red for Italian Baroque, green for Dutch, ink grey for China, indigo for Japan, light walls for modern), gilt frames for European oil paintings, silk mounts with rollers for East Asian hanging scrolls, rods for tapestries, picture lights, wall labels, a wood floor, a bench, wall text at the entrance, and titled doorways.
 - Drag to look, walk with W A S D or the arrow keys, click a work to walk up to it, and walk into (or click) a doorway to go through.
 - Works hang at their measured size (1 scene unit = 1 meter). Only works with an approved image **and** a measured painted-surface size are hung; the catalog lists everything.
-- A smaller image loads first; the larger approved image loads when you walk within about 3 m. Textures load through `/api/gallery-image/<id>`, which re-checks the rights gate and only fetches from the three museums' image hosts.
+- A smaller image (up to 1,024 px) loads first; a close-up image (up to 2,048 px) loads when you walk within about 3 m. Museum originals of 5–8 MB are resized once and kept in `data/image-cache`, so later visits are instant. For more detail up close, start the server with `GALLERY_MAX_TEXTURE=4096 npm run dev` (slower, more memory). Only images that pass the rights gate are cached, the gate is checked on every request, and `npm run takedown` deletes the cached copies. The detail page still links to each museum's full-resolution original. Textures load through `/api/gallery-image/<id>`, which re-checks the rights gate and only fetches from the three museums' image hosts.
 
 ### If gallery images don't load
 

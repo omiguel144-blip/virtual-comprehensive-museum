@@ -15,7 +15,7 @@ export default defineConfig({
   webServer: {
     command: `npx tsx e2e/fixture.ts && npx next dev -p ${port}`,
     url: `http://localhost:${port}`,
-    env: { DATABASE_PATH: "data/e2e.db" },
+    env: { DATABASE_PATH: "data/e2e.db", IMAGE_CACHE_DIR: "data/e2e-image-cache" },
     reuseExistingServer: false,
     timeout: 120_000,
   },

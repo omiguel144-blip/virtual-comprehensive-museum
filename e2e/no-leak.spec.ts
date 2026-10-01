@@ -37,6 +37,7 @@ test("the gallery hangs only approved works and refuses withdrawn textures", asy
   expect(search).toContain("Open Landscape");
   expect(search).not.toContain("Withdrawn Portrait");
 
+  // Withdrawn: refused even though the fixture left cached copies on disk.
   expect((await request.get("/api/gallery-image/2")).status()).toBe(404);
   expect((await request.get("/api/gallery-image/2?size=large")).status()).toBe(404);
   // Approved, but its fixture URL is not a museum image host, so it is refused too.
