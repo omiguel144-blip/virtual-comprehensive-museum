@@ -18,7 +18,8 @@
     "import:cma": "tsx scripts/import/cma.ts",
     "import:all": "npm run import:met && npm run import:aic && npm run import:cma && npm run dedupe",
     "check:images": "tsx scripts/check-images.ts",
-    "dedupe": "tsx scripts/dedupe.ts"
+    "dedupe": "tsx scripts/dedupe.ts",
+    "verify:aic": "tsx scripts/import/aic-verify.ts"
   },
   "dependencies": {
     "@react-three/fiber": "^9.8.1",

@@ -2,7 +2,7 @@ import { isAllowedImageHost } from "./image-hosts";
 
 // Museum image servers (often behind a CDN) may refuse requests that don't
 // identify themselves. AIC also asks API clients to send AIC-User-Agent.
-const HEADERS = {
+export const MUSEUM_REQUEST_HEADERS = {
   "User-Agent": "Mozilla/5.0 (compatible; VirtualComprehensiveMuseum/0.1; open-access research project)",
   "AIC-User-Agent": "virtual-comprehensive-museum (open-access research project)",
   Accept: "image/avif,image/webp,image/jpeg,image/*;q=0.8",
@@ -17,7 +17,7 @@ export async function fetchApprovedImage(url: string, timeoutMs = 20_000): Promi
   if (!isAllowedImageHost(url)) return { ok: false, reason: "host not allowed" };
   let res: Response;
   try {
-    res = await fetch(url, { headers: HEADERS, redirect: "follow", signal: AbortSignal.timeout(timeoutMs) });
+    res = await fetch(url, { headers: MUSEUM_REQUEST_HEADERS, redirect: "follow", signal: AbortSignal.timeout(timeoutMs) });
   } catch (err) {
     const cause = (err as { cause?: { code?: string } }).cause?.code;
     return { ok: false, reason: `${(err as Error).name}: ${(err as Error).message}${cause ? ` (${cause})` : ""}` };

@@ -16,7 +16,12 @@ export async function GET(request: Request, { params }: RouteContext<"/api/galle
   const url = size === "large" ? artwork?.image?.imageUrl : artwork?.image?.thumbnailUrl;
   if (!url) return new Response("Not found", { status: 404 });
 
-  const result = await fetchApprovedImage(url);
+  let result = await fetchApprovedImage(url);
+  // One gentle retry for refusals that can be caused by request bursts.
+  if (!result.ok && /^HTTP (403|429|503)\b/.test(result.reason)) {
+    await new Promise((r) => setTimeout(r, 800));
+    result = await fetchApprovedImage(url);
+  }
   if (!result.ok) {
     if (result.reason === "host not allowed") return new Response("Not found", { status: 404 });
     console.warn(`[gallery-image] artwork ${id} (${size}) failed: ${result.reason} <- ${url}`);

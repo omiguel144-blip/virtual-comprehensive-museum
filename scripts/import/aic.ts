@@ -2,7 +2,10 @@
  * Imports paintings from the Art Institute of Chicago's published data dump,
  * as AIC recommends for bulk use instead of paging its API.
  *
- *   npx tsx scripts/import/aic.ts [--limit N] [--refresh]
+ *   npx tsx scripts/import/aic.ts [--limit N] [--refresh] [--no-verify]
+ *
+ * Afterwards it re-checks every stored image against the live AIC API (see
+ * aic-verify.ts), because the dump can be over a year old.
  *
  * Images are hotlinked from AIC's IIIF server (which AIC permits) and only
  * for records the dump marks is_public_domain.
@@ -12,6 +15,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { openDb } from "../../src/db";
 import { AIC_INSTITUTION, artworkFromAic, decideAicImage, isAicPainting, type AicArtwork } from "./aic-map";
+import { runAicVerify } from "./aic-verify";
 import { applyRecord } from "./apply";
 import { downloadOnce, flag, limitArg, newReport, writeReport } from "./common";
 
@@ -54,6 +58,11 @@ async function main() {
   }
 
   writeReport("aic", report);
+
+  if (!flag("no-verify")) {
+    console.log("");
+    await runAicVerify();
+  }
 }
 
 main().catch((err) => {

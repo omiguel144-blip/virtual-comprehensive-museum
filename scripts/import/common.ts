@@ -104,7 +104,11 @@ export function countReject(report: { rejected: Record<string, number>; catalogO
   report.catalogOnly++;
 }
 
-export function writeReport(slug: string, report: { startedAt: string; finishedAt: string; errors: string[] }) {
+export function writeReport(
+  slug: string,
+  report: { startedAt: string; finishedAt: string; errors: string[] },
+  errorNote = "these works stay catalog-only until a rerun succeeds",
+) {
   report.finishedAt = new Date().toISOString();
   const out = path.join(process.cwd(), "reports", `${slug}-${report.startedAt.slice(0, 19).replace(/:/g, "-")}.json`);
   fs.mkdirSync(path.dirname(out), { recursive: true });
@@ -112,7 +116,7 @@ export function writeReport(slug: string, report: { startedAt: string; finishedA
   const { errors, ...summary } = report;
   console.log(JSON.stringify({ ...summary, errorCount: errors.length }, null, 2));
   if (errors.length) {
-    console.log(`\nErrors (${errors.length}); these works stay catalog-only until a rerun succeeds:`);
+    console.log(`\nErrors (${errors.length}); ${errorNote}:`);
     for (const e of errors.slice(0, 10)) console.log(`  ${e}`);
     if (errors.length > 10) console.log(`  ...and ${errors.length - 10} more in the report`);
   }

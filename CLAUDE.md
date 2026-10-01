@@ -24,5 +24,6 @@ A catalog of painting history. Core rule: **an artwork can enter the catalog wit
 
 ## Commands
 - `npm test` (unit), `npm run test:e2e` (leak test), `npm run lint`, `npm run typecheck`
+- `npm run verify:aic` (live re-check of stored Chicago images; also runs after `import:aic`)
 - `npm run dedupe` (then `--list`, `--confirm`, `--reject`, `--undo`), `npm run check:images`
 - `npm run import:met -- --limit 500`, `npm run import:aic`, `npm run import:cma`, `npm run import:all`, `npm run seed`, `npm run takedown -- <artworkId>`

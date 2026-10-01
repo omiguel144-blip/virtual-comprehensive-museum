@@ -10,7 +10,8 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className="h-full antialiased">
-      <body className="min-h-full flex flex-col">
+      {/* Browser extensions (e.g. Grammarly) add attributes to <body>; ignore those mismatches. */}
+      <body className="min-h-full flex flex-col" suppressHydrationWarning>
         <header className="border-b border-border">
           <nav className="mx-auto flex max-w-6xl items-baseline justify-between gap-4 px-4 py-4">
             <Link href="/" className="font-serif text-xl tracking-tight">

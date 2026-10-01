@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { clampToRoom, EYE_LEVEL, fitImage } from "@/lib/gallery-layout";
+import { createLimiter } from "@/lib/limiter";
 import type { GalleryPainting } from "./types";
 
 const WALK_SPEED = 2.2; // m/s, a slow museum stroll
@@ -37,11 +38,19 @@ function loadOne(url: string): Promise<THREE.Texture> {
   });
 }
 
+// Museum CDNs may refuse bursts, so only a few requests run at once. Small
+// images have their own queue so they never wait behind large ones.
+const queues = { small: createLimiter(3), large: createLimiter(2) };
+
 /**
  * Loads through our same-origin route first; if that fails, tries the
  * museum's own URL (works when the museum sends CORS headers).
  */
-async function loadTexture(painting: GalleryPainting, size: "small" | "large"): Promise<THREE.Texture> {
+function loadTexture(painting: GalleryPainting, size: "small" | "large"): Promise<THREE.Texture> {
+  return queues[size](() => loadTextureNow(painting, size));
+}
+
+async function loadTextureNow(painting: GalleryPainting, size: "small" | "large"): Promise<THREE.Texture> {
   try {
     return await loadOne(proxyUrl(painting.id, size));
   } catch {

@@ -2,31 +2,51 @@
  * Diagnoses gallery image loading: fetches a few approved images per museum
  * the same way the gallery server does and reports what happened.
  *
- *   npx tsx scripts/check-images.ts
+ *   npx tsx scripts/check-images.ts                     two works per museum
+ *   npx tsx scripts/check-images.ts --ids 3049,1403     specific artwork ids (from the dev log)
+ *   npx tsx scripts/check-images.ts --institution "Art Institute of Chicago" --all
  */
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { openDb } from "../src/db";
 import { artworks, images } from "../src/db/schema";
 import { fetchApprovedImage } from "../src/lib/fetch-image";
 import { isDisplayable } from "../src/lib/rights";
 
+function arg(name: string) {
+  const i = process.argv.indexOf(`--${name}`);
+  return i >= 0 ? process.argv[i + 1] : undefined;
+}
+
 async function main() {
   const db = openDb();
+  const ids = arg("ids")?.split(",").map(Number).filter(Number.isInteger);
+  const institution = arg("institution");
+  const all = process.argv.includes("--all");
+
   const rows = db
     .select({ institution: artworks.institution, id: artworks.id, image: images })
     .from(images)
     .innerJoin(artworks, eq(images.artworkId, artworks.id))
-    .where(and(eq(images.displayStatus, "APPROVED")))
+    .where(
+      and(
+        ids?.length ? inArray(artworks.id, ids) : eq(images.displayStatus, "APPROVED"),
+        institution ? eq(artworks.institution, institution) : undefined,
+      ),
+    )
     .all();
 
   const byInstitution = new Map<string, typeof rows>();
   for (const row of rows) {
-    if (!isDisplayable(row.image)) continue;
+    if (!isDisplayable(row.image)) {
+      // Explicitly requested works get an explanation instead of silence.
+      if (ids?.length) console.log(`artwork ${row.id}: not displayable (status ${row.image.displayStatus}); the gallery won't request it`);
+      continue;
+    }
     const list = byInstitution.get(row.institution) ?? [];
-    if (list.length < 2) list.push(row);
+    if (all || ids?.length || list.length < 2) list.push(row);
     byInstitution.set(row.institution, list);
   }
-  if (byInstitution.size === 0) console.log("No approved images in the database. Run the importers first.");
+  if (byInstitution.size === 0 && !ids?.length) console.log("No approved images match. Run the importers first.");
 
   for (const [institution, list] of byInstitution) {
     console.log(`\n${institution}`);

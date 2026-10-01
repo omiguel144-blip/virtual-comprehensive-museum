@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { artworkFromAic, decideAicImage, isAicPainting, type AicArtwork } from "./aic-map";
+import { artworkFromAic, decideAicImage, decideAicVerification, isAicPainting, type AicArtwork } from "./aic-map";
 
 const record: AicArtwork = {
   id: 100026,
@@ -59,5 +59,29 @@ describe("AIC mapping", () => {
     const d = decideAicImage({ ...record, copyright_notice: "© Estate of the artist" }, "now");
     expect(d.approved).toBe(false);
     expect(d.image).toMatchObject({ displayStatus: "PENDING_REVIEW", rightsBasis: "UNKNOWN" });
+  });
+});
+
+describe("decideAicVerification", () => {
+  const stored = "https://www.artic.edu/iiif/2/abc/full/1686,/0/default.jpg";
+  const live = { id: 1, is_public_domain: true, image_id: "abc", copyright_notice: null };
+
+  it("confirms unchanged public-domain images", () => {
+    expect(decideAicVerification(stored, live)).toEqual({ action: "confirm" });
+  });
+
+  it("updates URLs when AIC replaced the image", () => {
+    expect(decideAicVerification(stored, { ...live, image_id: "xyz" })).toEqual({
+      action: "update",
+      imageUrl: "https://www.artic.edu/iiif/2/xyz/full/1686,/0/default.jpg",
+      thumbnailUrl: "https://www.artic.edu/iiif/2/xyz/full/843,/0/default.jpg",
+    });
+  });
+
+  it("blocks when the live record is no longer clearly open access", () => {
+    expect(decideAicVerification(stored, undefined)).toMatchObject({ action: "block" });
+    expect(decideAicVerification(stored, { ...live, is_public_domain: false })).toMatchObject({ action: "block" });
+    expect(decideAicVerification(stored, { ...live, copyright_notice: "© Estate" })).toMatchObject({ action: "block" });
+    expect(decideAicVerification(stored, { ...live, image_id: null })).toMatchObject({ action: "block" });
   });
 });

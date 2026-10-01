@@ -97,3 +97,29 @@ export function decideAicImage(a: AicArtwork, fallbackCheckedAt: string): ImageD
   }
   return { approved: true, image: { ...image, displayStatus: "APPROVED" } };
 }
+
+/** Fields requested from the live AIC API when re-verifying stored images. */
+export const AIC_VERIFY_FIELDS = "id,is_public_domain,image_id,copyright_notice";
+
+export type AicLiveRecord = Pick<AicArtwork, "id" | "is_public_domain" | "image_id" | "copyright_notice">;
+
+export type AicVerification =
+  | { action: "confirm" }
+  | { action: "update"; imageUrl: string; thumbnailUrl: string }
+  | { action: "block"; reason: string };
+
+/**
+ * Compares a stored AIC image with the live API record. The dump can be over
+ * a year old, so the live record decides: anything not clearly still open
+ * access is blocked.
+ */
+export function decideAicVerification(storedImageUrl: string, live: AicLiveRecord | undefined): AicVerification {
+  if (!live) return { action: "block", reason: "record no longer in the AIC API" };
+  if (!live.is_public_domain) return { action: "block", reason: "no longer public domain" };
+  if (orNull(live.copyright_notice)) return { action: "block", reason: "copyright notice added" };
+  const imageId = orNull(live.image_id);
+  if (!imageId) return { action: "block", reason: "image removed" };
+  const imageUrl = aicImageUrl(imageId, 1686);
+  if (imageUrl === storedImageUrl) return { action: "confirm" };
+  return { action: "update", imageUrl, thumbnailUrl: aicImageUrl(imageId, 843) };
+}

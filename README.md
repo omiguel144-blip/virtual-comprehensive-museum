@@ -8,7 +8,7 @@ A searchable museum of painting history that shows high-quality images only when
 npm install
 npm run seed                          # 5 Met paintings via the Met API (needs internet)
 npm run import:met -- --limit 500     # first 500 Met paintings (downloads a ~300 MB CSV once)
-npm run import:aic                    # all Art Institute of Chicago paintings (~120 MB dump, ~10 s)
+npm run import:aic                    # all Art Institute of Chicago paintings (~120 MB dump), then a live re-check
 npm run import:cma                    # all Cleveland Museum of Art paintings (~130 MB CSV, ~10 s)
 npm run dev                           # http://localhost:3000
 ```
@@ -29,7 +29,9 @@ Both importers read the bulk datasets each museum publishes, so they make no per
 | Chicago | `is_public_domain` is true, an `image_id` exists, and there is no copyright notice | Catalog-only. AIC's IIIF server also serves copyrighted images, so an image ID alone never counts. |
 | Cleveland | `share_license_status` is `CC0` and the image is on CMA's open-access CDN | Catalog-only. A CC0 flag next to a copyright notice is held as `PENDING_REVIEW`. |
 
-Chicago images are hotlinked from its IIIF server (843 px for cards, 1686 px for detail pages), which AIC permits. Chicago's dump is refreshed only occasionally, so each image records the dump's own timestamp as its rights check date.
+Chicago images are hotlinked from its IIIF server (843 px for cards, 1686 px for detail pages), which AIC permits.
+
+Chicago's dump is refreshed only occasionally (the current one is from February 2025), and since then AIC has replaced or unpublished some images and changed some rights. So `import:aic` finishes by re-checking every stored Chicago image against the live AIC API: 100 works per request, one request per second (about 20 seconds in total). Unchanged images get a fresh check date, replaced images get their new URLs, and anything no longer public domain, now carrying a copyright notice, or removed is blocked. Takedowns are never touched, and a failed request leaves its batch unchanged. Run it alone with `npm run verify:aic`, or skip it with `npm run import:aic -- --no-verify`.
 
 ### Reading the import report
 
@@ -58,7 +60,11 @@ Paintings that fail show as dark brown panels, and the info panel says so. Run:
 npm run check:images
 ```
 
-It fetches a few approved images per museum the same way the gallery does and prints the exact failure (HTTP status, timeout, and so on). The `npm run dev` terminal also logs each failure. If the server route fails, the browser tries the museum's own URL directly.
+It fetches a few approved images per museum the same way the gallery does and prints the exact failure (HTTP status, timeout, and so on). To test specific works from the dev log (`[gallery-image] artwork 3049 ...`), run `npm run check:images -- --ids 3049,1403`; add `--institution "Art Institute of Chicago" --all` to test every image from one museum.
+
+- **Chicago 403 or 404:** usually the image was replaced or unpublished after the data dump. Run `npm run verify:aic`.
+- The gallery loads at most three images at a time and retries a refused request once, so museum servers aren't hit with bursts. If the server route still fails, the browser tries the museum's own URL directly.
+- `THREE.Clock: This module has been deprecated` in the browser console comes from inside the 3D library and is harmless.
 
 ## Duplicates across museums
 
